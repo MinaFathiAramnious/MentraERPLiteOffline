@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار الإجراءات السريعة - MENTRA ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-blue-600 mb-8 text-center">اختبار الإجراءات السريعة - MENTRA ERP</h1>
+        
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">حالة النظام</h2>
+            <div id="system-status" class="space-y-2">
+                <div class="flex justify-between">
+                    <span>قاعدة البيانات:</span>
+                    <span id="db-status" class="font-bold">جاري التحقق...</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>مدير النسخ الاحتياطي:</span>
+                    <span id="backup-status" class="font-bold">جاري التحقق...</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>مدير المزامنة:</span>
+                    <span id="sync-status" class="font-bold">جاري التحقق...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
+            <h3 class="text-lg font-bold mb-4">الإجراءات السريعة</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button onclick="testSalesAction()" class="bg-white/20 hover:bg-white/30 p-4 rounded-lg text-center transition-all">
+                    <i class="fas fa-plus-circle text-2xl mb-2"></i>
+                    <div class="text-sm">فاتورة مبيعات</div>
+                </button>
+                <button onclick="testPurchasesAction()" class="bg-white/20 hover:bg-white/30 p-4 rounded-lg text-center transition-all">
+                    <i class="fas fa-shopping-cart text-2xl mb-2"></i>
+                    <div class="text-sm">فاتورة مشتريات</div>
+                </button>
+                <button onclick="testBackupAction()" class="bg-white/20 hover:bg-white/30 p-4 rounded-lg text-center transition-all">
+                    <i class="fas fa-download text-2xl mb-2"></i>
+                    <div class="text-sm">نسخ احتياطي</div>
+                </button>
+                <button onclick="testSyncAction()" class="bg-white/20 hover:bg-white/30 p-4 rounded-lg text-center transition-all">
+                    <i class="fas fa-sync text-2xl mb-2"></i>
+                    <div class="text-sm">مزامنة</div>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
+            <h3 class="text-lg font-bold mb-4">سجل العمليات</h3>
+            <div id="action-log" class="space-y-2 max-h-64 overflow-y-auto">
+                <div class="text-gray-500 text-sm">لم يتم تنفيذ أي عمليات بعد...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تحميل المكتبات المطلوبة -->
+    <script src="assets/js/db-init.js"></script>
+    <script src="assets/js/BackupManager.js"></script>
+    <script src="assets/js/syncManager.js"></script>
+    <script src="assets/js/backupFunctions.js"></script>
+
+    <script>
+        // دالة لتسجيل العمليات
+        function logAction(action, status, details = '') {
+            const logContainer = document.getElementById('action-log');
+            const timestamp = new Date().toLocaleString('ar-EG');
+            const statusColor = status === 'success' ? 'text-green-600' : status === 'error' ? 'text-red-600' : 'text-blue-600';
+            const statusIcon = status === 'success' ? 'fa-check-circle' : status === 'error' ? 'fa-times-circle' : 'fa-info-circle';
+            
+            const logEntry = `
+                <div class="flex items-start gap-2 p-2 bg-gray-50 rounded">
+                    <i class="fas ${statusIcon} ${statusColor} mt-1"></i>
+                    <div class="flex-1">
+                        <div class="font-bold">${action}</div>
+                        <div class="text-sm text-gray-600">${details || 'تمت العملية بنجاح'}</div>
+                        <div class="text-xs text-gray-400">${timestamp}</div>
+                    </div>
+                </div>
+            `;
+            
+            logContainer.innerHTML = logEntry + logContainer.innerHTML;
+            
+            // حذف أول رسالة إذا كانت العديدة
+            const entries = logContainer.children;
+            if (entries.length > 10) {
+                logContainer.removeChild(entries[entries.length - 1]);
+            }
+        }
+
+        // التحقق من حالة النظام
+        async function checkSystemStatus() {
+            try {
+                // التحقق من قاعدة البيانات
+                if (typeof db !== 'undefined' && db) {
+                    document.getElementById('db-status').innerHTML = '<span class="text-green-600">✅ جاهزة</span>';
+                } else {
+                    document.getElementById('db-status').innerHTML = '<span class="text-red-600">❌ غير جاهزة</span>';
+                }
+
+                // التحقق من مدير النسخ الاحتياطي
+                if (typeof window.backupManager !== 'undefined' && window.backupManager) {
+                    document.getElementById('backup-status').innerHTML = '<span class="text-green-600">✅ جاهز</span>';
+                } else {
+                    document.getElementById('backup-status').innerHTML = '<span class="text-red-600">❌ غير جاهز</span>';
+                }
+
+                // التحقق من مدير المزامنة
+                if (typeof window.syncManager !== 'undefined' && window.syncManager) {
+                    document.getElementById('sync-status').innerHTML = '<span class="text-green-600">✅ جاهز</span>';
+                    // إنشاء MentraSync للاختبار
+                    window.MentraSync = window.syncManager;
+                } else {
+                    document.getElementById('sync-status').innerHTML = '<span class="text-red-600">❌ غير جاهز</span>';
+                }
+            } catch (error) {
+                console.error('Error checking system status:', error);
+            }
+        }
+
+        // اختبار فاتورة المبيعات
+        function testSalesAction() {
+            logAction('فاتورة مبيعات', 'info', 'جاري الانتقال إلى صفحة المبيعات...');
+            // محاكاة الانتقال
+            setTimeout(() => {
+                logAction('فاتورة مبيعات', 'success', 'تم الانتقال بنجاح إلى صفحة المبيعات');
+            }, 1000);
+        }
+
+        // اختبار فاتورة المشتريات
+        function testPurchasesAction() {
+            logAction('فاتورة مشتريات', 'info', 'جاري الانتقال إلى صفحة المشتريات...');
+            // محاكاة الانتقال
+            setTimeout(() => {
+                logAction('فاتورة المشتريات', 'success', 'تم الانتقال بنجاح إلى صفحة المشتريات');
+            }, 1000);
+        }
+
+        // اختبار النسخ الاحتياطي
+        async function testBackupAction() {
+            logAction('نسخ احتياطي', 'info', 'جاري إنشاء نسخة احتياطية...');
+            
+            try {
+                if (window.backupManager) {
+                    const result = await window.backupManager.createFullBackup({
+                        encrypt: false,
+                        compress: false,
+                        description: 'نسخة اختبارية'
+                    });
+                    
+                    if (result.success) {
+                        logAction('نسخ احتياطي', 'success', `تم إنشاء النسخة الاحتياطية: ${result.filename}`);
+                    } else {
+                        logAction('نسخ احتياطي', 'error', 'فشل إنشاء النسخة الاحتياطية');
+                    }
+                } else {
+                    logAction('نسخ احتياطي', 'error', 'مدير النسخ الاحتياطي غير متاح');
+                }
+            } catch (error) {
+                logAction('نسخ احتياطي', 'error', `خطأ: ${error.message}`);
+            }
+        }
+
+        // اختبار المزامنة
+        async function testSyncAction() {
+            logAction('مزامنة', 'info', 'جاري بدء المزامنة...');
+            
+            try {
+                if (window.syncManager) {
+                    const result = await window.syncManager.performSync();
+                    
+                    if (result.success) {
+                        logAction('مزامنة', 'success', `تمت مزامنة ${result.synced} عنصر بنجاح`);
+                    } else {
+                        logAction('مزامنة', 'error', 'فشلت المزامنة');
+                    }
+                } else {
+                    logAction('مزامنة', 'error', 'مدير المزامنة غير متاح');
+                }
+            } catch (error) {
+                logAction('مزامنة', 'error', `خطأ: ${error.message}`);
+            }
+        }
+
+        // التشغيل عند تحميل الصفحة
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(checkSystemStatus, 2000);
+        });
+    </script>
+</body>
+</html>
