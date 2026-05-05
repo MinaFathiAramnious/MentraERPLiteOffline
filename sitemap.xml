@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- الصفحة الرئيسية -->
+  <url>
+    <loc>https://mentra-erp-lite.netlify.app/</loc>
+    <lastmod>2026-05-05</lastmod>
+    <priority>1.00</priority>
+  </url>
+
+  <!-- صفحة الدخول -->
+  <url>
+    <loc>https://mentra-erp-lite.netlify.app/login.html</loc>
+    <lastmod>2026-05-05</lastmod>
+    <priority>0.80</priority>
+  </url>
+
+  <!-- لوحة التحكم -->
+  <url>
+    <loc>https://mentra-erp-lite.netlify.app/dashboard.html</loc>
+    <lastmod>2026-05-05</lastmod>
+    <priority>0.80</priority>
+  </url>
+
+  <!-- صفحة الاشتراكات -->
+  <url>
+    <loc>https://mentra-erp-lite.netlify.app/subscriptions.html</loc>
+    <lastmod>2026-05-05</lastmod>
+    <priority>0.70</priority>
+  </url>
+
+  <!-- صفحة الشرح/التعليمات -->
+  <url>
+    <loc>https://mentra-erp-lite.netlify.app/Tutorial.html</loc>
+    <lastmod>2026-05-05</lastmod>
+    <priority>0.70</priority>
+  </url>
+</urlset>
