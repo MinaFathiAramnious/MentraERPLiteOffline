@@ -1,6 +1,6 @@
 /**
- * MENTRA ERP - Smart Profit, Loss & Cash Flow Report (v11.0 Pro Max)
- * الميزات: بحث بالتاريخ من/إلى، ليمت 5 للعمليات لتسريع الأداء، قراءة المصروفات من القيود
+ * MENTRA ERP - Smart Profit, Loss & Cash Flow Report (v11.0 Pro Max + Pagination)
+ * الميزات: بحث بالتاريخ من/إلى، ترقيم العمليات لتسريع الأداء، قراءة المصروفات من القيود
  */
 
 (function() {
@@ -18,6 +18,13 @@
         journal_items: '++id, journal_id, account_id, debit, credit',
         stock_movements: '++id, product_id, type, qty, date, ref_id'
     });
+
+    // حالة الصفحة للتحكم في الترقيم
+    const state = {
+        transactions: [],
+        currentPage: 1,
+        itemsPerPage: 5
+    };
 
     const renderLayout = () => {
         // إعداد تواريخ الشهر الحالي كافتراضي
@@ -101,14 +108,14 @@
                 </div>
             </div>
 
-            <!-- Transaction Details Table (Limited to 5) -->
+            <!-- Transaction Details Table -->
             <div class="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
-                        <i class="fas fa-exchange-alt text-slate-400"></i> أحدث العمليات بالفترة
+                        <i class="fas fa-exchange-alt text-slate-400"></i> سجل العمليات بالفترة المحددة
                     </h2>
-                    <span class="bg-rose-50 text-rose-600 px-3 py-1 rounded-lg text-[10px] font-black border border-rose-100">
-                        عرض أسرع (أحدث 5)
+                    <span id="transactions-count-badge" class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-[10px] font-black border border-indigo-100">
+                        0 عملية
                     </span>
                 </div>
                 
@@ -129,6 +136,9 @@
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- أزرار الترقيم -->
+                <div id="profit-pagination" class="mt-6 flex justify-center items-center gap-3"></div>
             </div>
             
             <!-- إعلان النسخة السحابية -->
@@ -344,15 +354,27 @@
         }
     }
 
-    function renderTransactionsTable(transactions) {
+    // --- دالة عرض الجدول بالترقيم ---
+    function renderPaginatedTransactions() {
         const tbody = document.getElementById('transactions-table');
-        const sorted = transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-        
-        // 🔴 ليميت عرض العمليات لـ 5 فقط لتسريع الأداء (Prevent Lag) 🔴
-        const limitCount = 5;
-        const displayData = sorted.slice(0, limitCount);
-        
-        let htmlContent = displayData.map(t => {
+        const paginationContainer = document.getElementById('profit-pagination');
+        const countBadge = document.getElementById('transactions-count-badge');
+
+        countBadge.innerHTML = `<i class="fas fa-layer-group ml-1"></i> إجمالي العمليات: ${state.transactions.length}`;
+
+        if (state.transactions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-400 font-bold"><i class="fas fa-folder-open text-4xl mb-3 block opacity-30"></i>لا توجد عمليات مسجلة في هذه الفترة</td></tr>';
+            paginationContainer.innerHTML = '';
+            return;
+        }
+
+        // استخراج عناصر الصفحة الحالية
+        const startIndex = (state.currentPage - 1) * state.itemsPerPage;
+        const endIndex = startIndex + state.itemsPerPage;
+        const displayData = state.transactions.slice(startIndex, endIndex);
+
+        // رسم الجدول
+        tbody.innerHTML = displayData.map(t => {
             let badgeClass = '';
             if(t.type === 'sale') badgeClass = 'bg-blue-50 text-blue-600 border border-blue-100';
             else if(t.type === 'purchase') badgeClass = 'bg-amber-50 text-amber-600 border border-amber-100';
@@ -379,30 +401,40 @@
             </tr>
         `}).join('');
 
-        // إذا كان هناك عمليات أكثر من 5، أظهر رسالة ذكية
-        if (sorted.length > limitCount) {
-            htmlContent += `
-            <tr>
-                <td colspan="6" class="text-center py-4 bg-slate-50/50">
-                    <span class="text-xs font-bold text-slate-400"><i class="fas fa-layer-group ml-1"></i> يوجد <b>${sorted.length - limitCount}</b> عمليات أخرى بالفترة המحددة (تم إخفاؤها لتسريع أداء النظام)</span>
-                </td>
-            </tr>
+        // رسم أزرار الترقيم
+        const totalPages = Math.ceil(state.transactions.length / state.itemsPerPage);
+
+        if (totalPages > 1) {
+            paginationContainer.innerHTML = `
+                <button onclick="changeProfitPage(${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''} class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold shadow-sm transition-all"><i class="fas fa-chevron-right"></i></button>
+                <span class="px-5 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-black text-sm border border-indigo-100">صفحة ${state.currentPage} من ${totalPages}</span>
+                <button onclick="changeProfitPage(${state.currentPage + 1})" ${state.currentPage === totalPages ? 'disabled' : ''} class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold shadow-sm transition-all"><i class="fas fa-chevron-left"></i></button>
             `;
+        } else {
+            paginationContainer.innerHTML = '';
         }
-
-        if(sorted.length === 0) {
-            htmlContent = '<tr><td colspan="6" class="text-center py-12 text-slate-400 font-bold"><i class="fas fa-folder-open text-4xl mb-3 block opacity-30"></i>لا توجد عمليات مسجلة في هذه الفترة</td></tr>';
-        }
-
-        tbody.innerHTML = htmlContent;
     }
+
+    // --- دالة تغيير الصفحة ---
+    window.changeProfitPage = (newPage) => {
+        const totalPages = Math.ceil(state.transactions.length / state.itemsPerPage);
+        if (newPage >= 1 && newPage <= totalPages) {
+            state.currentPage = newPage;
+            renderPaginatedTransactions();
+        }
+    };
 
     // --- مشغلات التحديث ---
     window.refreshProfitReport = async () => {
         const data = await calculateProfitData();
         if (data) {
             renderDashboards(data);
-            renderTransactionsTable(data.transactions);
+            
+            // ترتيب العمليات وتخزينها في الـ State
+            state.transactions = data.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            state.currentPage = 1; // تصفير الصفحة عند الفلترة الجديدة
+            
+            renderPaginatedTransactions();
         }
     };
 
