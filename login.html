@@ -153,45 +153,39 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", async () => {
-            
-            // 1. فحص الجلسة (توجيه سريع إذا كان مسجل دخول مسبقاً)
+
+            // 1. فحص الجلسة
             if (localStorage.getItem('isLoggedIn') === 'true') {
                 window.location.replace('dashboard.html');
                 return;
             }
 
-            // 2. إنشاء مستخدم افتراضي إذا كانت القاعدة فارغة
-            try {
-                const count = await db.local_users.count();
-                if (count === 0) {
-                    await db.local_users.add({
-                        username: 'admin',
-                        phone: '01000000000',
-                        password: '123',
-                        full_name: 'المدير العام',
-                        role: 'admin'
-                    });
-                }
-            } catch (e) {
-                console.error("DB Initialization Error", e);
-            }
-
             // ==========================================
-            // نظام الدخول السريع (الحسابات المحفوظة)
+            // MULTI-TENANCY: بناء قائمة المحلات للدخول السريع
             // ==========================================
             const quickLoginSection = document.getElementById('quick-login-section');
             const savedAccountsList = document.getElementById('saved-accounts-list');
-            let savedAccounts = JSON.parse(localStorage.getItem('mentra_saved_accounts')) || [];
+
+            // نقرأ قائمة المحلات المسجلة على الجهاز
+            const shopsList = JSON.parse(localStorage.getItem('mentra_shops_list') || '[]');
+            let savedAccounts = JSON.parse(localStorage.getItem('mentra_saved_accounts') || '[]');
+
+            // دمج المحلات مع الحسابات المحفوظة في العرض
+            const displayAccounts = shopsList.map(shop => ({
+                identifier: shop.username,
+                name: shop.shopName,
+                dbName: shop.dbName
+            }));
 
             // دالة لرسم الحسابات المحفوظة
             function renderSavedAccounts() {
-                if (savedAccounts.length === 0) {
+                if (displayAccounts.length === 0) {
                     quickLoginSection.classList.add('hidden');
                     return;
                 }
                 quickLoginSection.classList.remove('hidden');
-                savedAccountsList.innerHTML = savedAccounts.map(acc => `
-                    <button type="button" onclick="selectQuickAccount('${acc.identifier}')" class="flex flex-col items-center gap-2 group transition-all w-16">
+                savedAccountsList.innerHTML = displayAccounts.map(acc => `
+                    <button type="button" onclick="selectQuickAccount('${acc.identifier}', '${acc.dbName}')" class="flex flex-col items-center gap-2 group transition-all w-16">
                         <div class="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white border-2 border-slate-200 text-slate-400 flex items-center justify-center text-xl font-black group-hover:border-blue-500 group-hover:text-blue-600 group-hover:bg-blue-50 shadow-sm transition-all active:scale-90">
                             ${acc.name.charAt(0)}
                         </div>
@@ -201,15 +195,17 @@
             }
 
             // دالة عند الضغط على أحد الحسابات المحفوظة
-            window.selectQuickAccount = (identifier) => {
+            window.selectQuickAccount = (identifier, dbName) => {
                 const idInput = document.getElementById('identifier');
                 const passInput = document.getElementById('password');
-                
+
+                // تفعيل DB الخاص بهذا المحل عند الضغط عليه
+                if (dbName) tenantManager.switchTo(dbName);
+
                 idInput.value = identifier;
                 passInput.value = '';
-                passInput.focus(); // نقل التركيز للباسورد فوراً
-                
-                // تأثير بصري بسيط
+                passInput.focus();
+
                 idInput.classList.add('ring-2', 'ring-blue-200');
                 setTimeout(() => idInput.classList.remove('ring-2', 'ring-blue-200'), 500);
             };
@@ -231,7 +227,7 @@
 
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
+
                 errorDiv.classList.add('hidden');
                 submitBtn.disabled = true;
                 submitBtn.classList.add('opacity-75');
@@ -242,50 +238,84 @@
                 const password = document.getElementById('password').value;
 
                 try {
-                    const user = await db.local_users.filter(u => {
-                        const matchUsername = u.username && u.username.toLowerCase() === identifier.toLowerCase();
-                        const matchPhone = u.phone && u.phone === identifier;
-                        return matchUsername || matchPhone;
-                    }).first();
+                    // ============================================================
+                    // MULTI-TENANCY: البحث في كل قواعد البيانات المسجلة على الجهاز
+                    // ============================================================
+                    const shops = JSON.parse(localStorage.getItem('mentra_shops_list') || '[]');
+                    let foundUser = null;
+                    let foundDBName = null;
+                    let foundShopName = null;
 
-                    if (user && user.password === password) {
-                        
-                        // حفظ بيانات الدخول السريع إذا كان الخيار مفعلاً
-                        if (rememberMe.checked) {
-                            // إزالة الحساب إذا كان موجوداً مسبقاً (لتحديث مكانه للأول)
-                            savedAccounts = savedAccounts.filter(a => a.identifier !== identifier);
-                            // إضافة الحساب لأول القائمة
-                            savedAccounts.unshift({ identifier: identifier, name: user.full_name });
-                            // الاحتفاظ بآخر 4 حسابات كحد أقصى للحفاظ على شكل الواجهة
-                            if(savedAccounts.length > 4) savedAccounts.pop();
-                            
-                            localStorage.setItem('mentra_saved_accounts', JSON.stringify(savedAccounts));
+                    // إذا في DB نشط حالياً ابحث فيه أولاً
+                    const currentDB = localStorage.getItem('mentra_current_db');
+                    const searchOrder = currentDB
+                        ? [currentDB, ...shops.map(s => s.dbName).filter(d => d !== currentDB)]
+                        : shops.map(s => s.dbName);
+
+                    for (const dbName of searchOrder) {
+                        try {
+                            const searchDB = new Dexie(dbName);
+                            searchDB.version(4).stores({
+                                settings: 'id, project_name, shop_name, phone, logo',
+                                local_users: '++id, username, full_name, role',
+                                active_session: 'id, user_id, login_time',
+                                products: '++id, name_ar, sku, category, stock_qty, price, cost',
+                                invoices: '++id, invoice_number, type, customer_vendor_id, date, total, status',
+                                invoice_items: '++id, invoice_id, product_id, price, qty, total_item',
+                                accounts: '++id, code, name_ar, type, balance',
+                                journal: '++id, date, ref_no, description, total',
+                                journal_items: '++id, journal_id, account_id, debit, credit',
+                                stock_movements: '++id, product_id, type, qty, date, ref_id'
+                            });
+                            await searchDB.open();
+
+                            const user = await searchDB.local_users.filter(u => {
+                                const matchUsername = u.username && u.username.toLowerCase() === identifier.toLowerCase();
+                                const matchPhone = u.phone && u.phone === identifier;
+                                return matchUsername || matchPhone;
+                            }).first();
+
+                            if (user && user.password === password) {
+                                foundUser = user;
+                                foundDBName = dbName;
+                                const shopInfo = shops.find(s => s.dbName === dbName);
+                                foundShopName = shopInfo ? shopInfo.shopName : user.full_name;
+
+                                // تفعيل الجلسة في الـ DB الصحيح
+                                await searchDB.active_session.clear();
+                                await searchDB.active_session.add({ id: 1, user_id: user.id, login_time: new Date().toISOString() });
+                                break;
+                            }
+                            await searchDB.close();
+                        } catch(dbErr) {
+                            console.warn(`تخطي DB: ${dbName}`, dbErr);
                         }
+                    }
 
-                        // تسجيل الجلسة محلياً في Dexie
-                        await db.active_session.clear(); 
-                        await db.active_session.add({ id: 1, user_id: user.id, login_time: new Date().toISOString() });
+                    if (foundUser) {
+                        // تفعيل الـ DB الصحيح لهذا المحل
+                        tenantManager.switchTo(foundDBName);
 
                         // حفظ الجلسة في LocalStorage
                         localStorage.setItem('isLoggedIn', 'true');
-                        localStorage.setItem('userName', user.full_name);
-                        localStorage.setItem('userRole', user.role);
+                        localStorage.setItem('userName', foundUser.full_name);
+                        localStorage.setItem('userRole', foundUser.role);
 
-                        // توجيه للوحة التحكم
-                        btnText.innerText = 'تم الدخول بنجاح!';
+                        btnText.innerText = `مرحباً بك في ${foundShopName}`;
                         btnIcon.className = 'fas fa-check';
                         submitBtn.classList.replace('bg-blue-600', 'bg-emerald-500');
-                        
+
                         setTimeout(() => {
                             window.location.replace('dashboard.html');
-                        }, 500);
+                        }, 700);
 
                     } else {
-                        errorText.innerText = 'البيانات غير صحيحة، تأكد من الاسم أو كلمة المرور.';
+                        errorText.innerText = 'البيانات غير صحيحة، تأكد من اسم المستخدم أو كلمة المرور.';
                         errorDiv.classList.remove('hidden');
                         resetButton();
                     }
                 } catch (err) {
+                    console.error(err);
                     errorText.innerText = 'فشل الاتصال بقاعدة البيانات المحلية!';
                     errorDiv.classList.remove('hidden');
                     resetButton();
@@ -298,6 +328,8 @@
                 btnText.innerText = 'دخول للنظام';
                 btnIcon.className = 'fas fa-arrow-left';
             }
+
+            renderSavedAccounts();
         });
     </script>
 </body>

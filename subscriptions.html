@@ -163,17 +163,43 @@ if ('serviceWorker' in navigator) {
                 const password = document.getElementById('password').value;
 
                 try {
-                    // 1. فحص إذا كان اسم المستخدم موجود مسبقاً
-                    const existingUser = await db.local_users.where("username").equalsIgnoreCase(username).first();
-                    
-                    if (existingUser) {
-                        showStatus('error', 'اسم المستخدم مسجل مسبقاً على هذا الجهاز');
+                    // ============================================================
+                    // MULTI-TENANCY: إنشاء قاعدة بيانات مستقلة لكل محل
+                    // ============================================================
+
+                    // 1. توليد اسم DB خاص بهذا المحل
+                    const newDBName = tenantManager.buildDBName(fullName);
+
+                    // 2. فحص إذا كان المحل مسجل مسبقاً (نفس اسم الـ DB)
+                    const existingShops = tenantManager.getShopsList();
+                    const shopExists = existingShops.find(s => s.dbName === newDBName);
+                    if (shopExists) {
+                        showStatus('error', `المحل "${fullName}" مسجل مسبقاً! جرب اسماً مختلفاً أو سجّل دخولك.`);
                         resetButton();
                         return;
                     }
 
-                    // 2. تسجيل المستخدم في Dexie
-                    const userId = await db.local_users.add({
+                    // 3. تفعيل الـ DB الجديد (قبل أي عملية Dexie)
+                    tenantManager.switchTo(newDBName);
+
+                    // 4. فتح قاعدة البيانات الجديدة المستقلة
+                    const newDB = new Dexie(newDBName);
+                    newDB.version(4).stores({
+                        settings:        'id, project_name, shop_name, phone, logo',
+                        local_users:     '++id, username, full_name, role',
+                        active_session:  'id, user_id, login_time',
+                        products:        '++id, name_ar, sku, category, stock_qty, price, cost',
+                        invoices:        '++id, invoice_number, type, customer_vendor_id, date, total, status',
+                        invoice_items:   '++id, invoice_id, product_id, price, qty, total_item',
+                        accounts:        '++id, code, name_ar, type, balance',
+                        journal:         '++id, date, ref_no, description, total',
+                        journal_items:   '++id, journal_id, account_id, debit, credit',
+                        stock_movements: '++id, product_id, type, qty, date, ref_id'
+                    });
+                    await newDB.open();
+
+                    // 5. تسجيل المستخدم في الـ DB الجديد
+                    const userId = await newDB.local_users.add({
                         full_name: fullName,
                         username: username,
                         password: password,
@@ -182,8 +208,8 @@ if ('serviceWorker' in navigator) {
                         created_at: new Date().toISOString()
                     });
 
-                    // 3. حفظ إعدادات النظام الأولية
-                    await db.table('settings').put({
+                    // 6. حفظ إعدادات المحل الجديد
+                    await newDB.table('settings').put({
                         id: 1,
                         project_name: 'MentraERPLite',
                         shop_name: fullName,
@@ -192,15 +218,18 @@ if ('serviceWorker' in navigator) {
                         tax_rate: 0
                     });
 
-                    // 4. تفعيل جلسة الدخول في Dexie
-                    await db.active_session.clear();
-                    await db.active_session.add({
+                    // 7. تفعيل جلسة الدخول
+                    await newDB.active_session.clear();
+                    await newDB.active_session.add({
                         id: 1,
                         user_id: userId,
                         login_time: new Date().toISOString()
                     });
 
-                    // 5. حفظ الجلسة في LocalStorage (ضروري جداً لكي لا يخرجه dashboard.html)
+                    // 8. إضافة المحل لقائمة المحلات المسجلة على الجهاز
+                    tenantManager.addShopToList(fullName, newDBName, username);
+
+                    // 9. حفظ الجلسة في LocalStorage
                     localStorage.setItem('isLoggedIn', 'true');
                     localStorage.setItem('userName', fullName);
                     localStorage.setItem('userRole', 'admin');
