@@ -6,8 +6,12 @@
 // ==========================================
 // الجزء الأول: تهيئة قاعدة البيانات (Database Init)
 // ==========================================
+function getCurrentDBName() {
+    return localStorage.getItem('mentra_current_db') || 'MentraLocalCache';
+}
 
-const db = new Dexie("MentraLocalCache");
+// 2. إنشاء قاعدة البيانات بالاسم الديناميكي
+const db = new Dexie(getCurrentDBName());
 
 db.version(4).stores({
     settings: 'id, project_name, shop_name, phone, logo',
