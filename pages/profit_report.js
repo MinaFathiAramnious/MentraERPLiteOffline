@@ -4,8 +4,12 @@
  */
 
 (function() {
-    // 1. الاتصال بقاعدة البيانات
-    const db = new Dexie("MentraLocalCache");
+function getCurrentDBName() {
+    return localStorage.getItem('mentra_current_db') || 'MentraLocalCache';
+}
+
+// 2. إنشاء قاعدة البيانات بالاسم الديناميكي
+const db = new Dexie(getCurrentDBName());
     db.version(4).stores({
         settings: 'id, project_name, shop_name, phone, logo',
         local_users: '++id, username, full_name, role', 
