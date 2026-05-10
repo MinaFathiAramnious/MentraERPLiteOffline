@@ -1,13 +1,16 @@
 /**
- * MENTRA ERP - Smart Dashboard (v10.0 Pro + Fully Responsive)
- * الميزات: متجاوب مع جميع الشاشات، ربط المصروفات بالقيود، حساب التكلفة والربح، تنبيهات النواقص
+ * MENTRA ERP - Smart Dashboard (v11.0 Pro + Fully Responsive + Returns)
+ * الميزات: متجاوب 100%، حساب المرتجعات، ربط المصروفات بالقيود، حساب التكلفة والربح، تنبيهات النواقص
  */
 
 // ==========================================
 // الجزء الأول: تهيئة قاعدة البيانات (Database Init)
 // ==========================================
+function getCurrentDBName() {
+    return localStorage.getItem('mentra_current_db') || 'MentraLocalCache';
+}
 
-const db = new Dexie("MentraLocalCache");
+const db = new Dexie(getCurrentDBName());
 
 db.version(4).stores({
     settings: 'id, project_name, shop_name, phone, logo',
@@ -88,7 +91,7 @@ function renderDashboardUI() {
     container.innerHTML = `
         <div class="animate-fade-in space-y-4 md:space-y-6 pb-16 px-2 sm:px-4 md:px-0" style="direction: rtl; -webkit-tap-highlight-color: transparent;">
             
-            <!-- الهيدر وفلتر التاريخ المتقدم (متجاوب) -->
+            <!-- الهيدر وفلتر التاريخ -->
             <div class="bg-white p-4 sm:p-5 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 md:gap-5">
                 <div class="w-full xl:w-auto text-center sm:text-right">
                     <h2 class="text-xl sm:text-2xl md:text-3xl font-black text-slate-800 flex justify-center sm:justify-start items-center gap-2">
@@ -118,15 +121,16 @@ function renderDashboardUI() {
                 </div>
             </div>
 
-            <!-- مؤشرات الأداء المالي (KPIs) -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-                <!-- المبيعات -->
+            <!-- مؤشرات الأداء المالي (KPIs) - الصف الأول -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5">
+                
+                <!-- صافي المبيعات -->
                 <div class="bg-white rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
                     <div class="absolute -right-4 -top-4 w-16 h-16 md:w-20 md:h-20 bg-blue-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
                     <div class="relative z-10">
                         <div class="flex justify-between items-start mb-3 md:mb-4">
                             <div class="min-w-0 flex-1">
-                                <p class="text-[10px] md:text-xs font-black text-slate-400 uppercase">إجمالي المبيعات</p>
+                                <p class="text-[10px] md:text-xs font-black text-slate-400 uppercase">صافي المبيعات</p>
                                 <div class="text-xl sm:text-2xl font-black text-slate-800 mt-1 font-mono tracking-tighter truncate" id="dash-sales">0.00</div>
                             </div>
                             <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-inner text-lg md:text-xl shrink-0"><i class="fas fa-wallet"></i></div>
@@ -135,21 +139,40 @@ function renderDashboardUI() {
                     </div>
                 </div>
 
-                <!-- تكلفة البضاعة المباعة -->
+                <!-- المرتجعات -->
                 <div class="bg-white rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
                     <div class="absolute -right-4 -top-4 w-16 h-16 md:w-20 md:h-20 bg-amber-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
+                    <div class="relative z-10">
+                        <div class="flex justify-between items-start mb-3 md:mb-4">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[10px] md:text-xs font-black text-slate-400 uppercase">إجمالي المرتجعات</p>
+                                <div class="text-xl sm:text-2xl font-black text-slate-800 mt-1 font-mono tracking-tighter truncate" id="dash-returns">0.00</div>
+                            </div>
+                            <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-inner text-lg md:text-xl shrink-0"><i class="fas fa-undo-alt"></i></div>
+                        </div>
+                        <p class="text-[10px] md:text-[11px] font-bold text-amber-600 bg-amber-50 inline-block px-2 py-1 rounded-md md:rounded-lg" id="dash-returns-count"><i class="fas fa-box-open ml-1"></i> 0 فاتورة</p>
+                    </div>
+                </div>
+
+                <!-- تكلفة البضاعة المباعة -->
+                <div class="bg-white rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-16 h-16 md:w-20 md:h-20 bg-indigo-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
                     <div class="relative z-10">
                         <div class="flex justify-between items-start mb-3 md:mb-4">
                             <div class="min-w-0 flex-1">
                                 <p class="text-[10px] md:text-xs font-black text-slate-400 uppercase">تكلفة المبيعات (COGS)</p>
                                 <div class="text-xl sm:text-2xl font-black text-slate-800 mt-1 font-mono tracking-tighter truncate" id="dash-cogs">0.00</div>
                             </div>
-                            <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-inner text-lg md:text-xl shrink-0"><i class="fas fa-box-open"></i></div>
+                            <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-inner text-lg md:text-xl shrink-0"><i class="fas fa-dolly"></i></div>
                         </div>
-                        <p class="text-[10px] md:text-[11px] font-bold text-amber-600">تكلفة البضاعة التي تم بيعها</p>
+                        <p class="text-[10px] md:text-[11px] font-bold text-indigo-600">تكلفة البضاعة التي تم بيعها</p>
                     </div>
                 </div>
+            </div>
 
+            <!-- مؤشرات الأداء المالي (KPIs) - الصف الثاني -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
+                
                 <!-- المصروفات -->
                 <div class="bg-white rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
                     <div class="absolute -right-4 -top-4 w-16 h-16 md:w-20 md:h-20 bg-rose-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
@@ -219,6 +242,13 @@ function renderDashboardUI() {
                             <div class="text-[11px] md:text-[13px] font-black text-slate-700 group-hover:text-white">نقطة البيع</div>
                         </button>
                         
+                        <button onclick="navigateToModule('returns')" class="group bg-slate-50 hover:bg-amber-600 p-4 md:p-5 rounded-2xl md:rounded-3xl text-center transition-all border border-slate-100 active:scale-95 shadow-sm">
+                            <div class="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl md:rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:scale-110 transition-transform">
+                                <i class="fas fa-undo-alt text-lg md:text-xl text-amber-600"></i>
+                            </div>
+                            <div class="text-[11px] md:text-[13px] font-black text-slate-700 group-hover:text-white">عمل مرتجع</div>
+                        </button>
+
                         <button onclick="navigateToModule('purchases')" class="group bg-slate-50 hover:bg-indigo-600 p-4 md:p-5 rounded-2xl md:rounded-3xl text-center transition-all border border-slate-100 active:scale-95 shadow-sm">
                             <div class="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl md:rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:scale-110 transition-transform">
                                 <i class="fas fa-truck-loading text-lg md:text-xl text-indigo-600"></i>
@@ -228,16 +258,9 @@ function renderDashboardUI() {
 
                         <button onclick="navigateToModule('settings')" class="group bg-slate-50 hover:bg-emerald-600 p-4 md:p-5 rounded-2xl md:rounded-3xl text-center transition-all border border-slate-100 active:scale-95 shadow-sm">
                             <div class="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl md:rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:scale-110 transition-transform">
-                                <i class="fas fa-download text-lg md:text-xl text-emerald-600"></i>
+                                <i class="fas fa-cog text-lg md:text-xl text-emerald-600"></i>
                             </div>
-                            <div class="text-[11px] md:text-[13px] font-black text-slate-700 group-hover:text-white">نسخة احتياطية</div>
-                        </button>
-
-                        <button onclick="navigateToModule('system_info')" class="group bg-slate-50 hover:bg-sky-600 p-4 md:p-5 rounded-2xl md:rounded-3xl text-center transition-all border border-slate-100 active:scale-95 shadow-sm">
-                            <div class="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl md:rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:scale-110 transition-transform">
-                                <i class="fas fa-sync text-lg md:text-xl text-sky-600"></i>
-                            </div>
-                            <div class="text-[11px] md:text-[13px] font-black text-slate-700 group-hover:text-white">مزامنة البيانات</div>
+                            <div class="text-[11px] md:text-[13px] font-black text-slate-700 group-hover:text-white">إعدادات النظام</div>
                         </button>
                     </div>
                 </div>
@@ -268,7 +291,6 @@ function renderDashboardUI() {
     fetchAndUpdateStats();
 }
 
-// 2. دوال مساعدة لضبط التاريخ السريع
 window.setQuickDate = function(type) {
     const today = new Date();
     const toInput = document.getElementById('date-to');
@@ -286,7 +308,6 @@ window.setQuickDate = function(type) {
     fetchAndUpdateStats();
 };
 
-// 3. المحرك الذكي لجلب وتحليل البيانات
 window.fetchAndUpdateStats = async function() {
     try {
         if (!db.isOpen()) await db.open();
@@ -300,7 +321,6 @@ window.fetchAndUpdateStats = async function() {
         const dateTo = new Date(toStr);
         dateTo.setHours(23, 59, 59, 999);
 
-        // جلب البيانات مع إضافة جدول القيود اليومية
         const [allInvoices, allInvoiceItems, products, allJournals] = await Promise.all([
             db.invoices.toArray(),
             db.invoice_items.toArray(),
@@ -311,11 +331,12 @@ window.fetchAndUpdateStats = async function() {
         const productMap = new Map();
         products.forEach(p => productMap.set(p.id, p));
 
-        let totalSales = 0, salesCount = 0;
-        let totalCOGS = 0;
+        let totalGrossSales = 0, salesCount = 0;
+        let totalReturns = 0, returnsCount = 0;
+        let totalGrossCOGS = 0, totalReturnsCOGS = 0;
         let totalExpenses = 0, expCount = 0;
 
-        // 3.أ. تحليل الفواتير (المبيعات)
+        // تحليل الفواتير (مبيعات ومرتجعات)
         allInvoices.forEach(inv => {
             if (inv.status === 'cancelled' || inv.status === 'draft') return;
             if (!inv.date) return;
@@ -325,24 +346,40 @@ window.fetchAndUpdateStats = async function() {
                 const amount = parseFloat(String(inv.total || '0').replace(/[^0-9.-]+/g, "")) || 0;
                 const typeStr = String(inv.type || '').toLowerCase().trim();
 
-                // المبيعات
+                // المبيعات العادية
                 if (typeStr === 'sale' || typeStr === 'sales' || typeStr.includes('مبيع')) {
-                    totalSales += amount;
+                    totalGrossSales += amount;
                     salesCount++;
                     
                     const items = allInvoiceItems.filter(item => item.invoice_id === inv.id);
                     items.forEach(item => {
                         const product = productMap.get(item.product_id);
                         const unitCost = product ? (parseFloat(product.cost) || 0) : 0;
-                        totalCOGS += (unitCost * parseFloat(item.qty || 0));
+                        totalGrossCOGS += (unitCost * parseFloat(item.qty || 0));
+                    });
+                }
+                // المرتجعات (سالبة في الداتا)
+                else if (typeStr === 'return_sale' || typeStr.includes('مرتجع')) {
+                    const absAmount = Math.abs(amount);
+                    totalReturns += absAmount;
+                    returnsCount++;
+
+                    const items = allInvoiceItems.filter(item => item.invoice_id === inv.id);
+                    items.forEach(item => {
+                        const product = productMap.get(item.product_id);
+                        const unitCost = product ? (parseFloat(product.cost) || 0) : 0;
+                        totalReturnsCOGS += (unitCost * Math.abs(parseFloat(item.qty || 0)));
                     });
                 }
             }
         });
 
-        // 3.ب. تحليل المصروفات من القيود اليومية
+        // تحليل المصروفات (من القيود اليومية)
         allJournals.forEach(jrn => {
             if (!jrn.date) return;
+            // تجنب تكرار الفواتير المسجلة تلقائياً
+            if (jrn.type === 'SALE' || jrn.type === 'PURCHASE' || jrn.type === 'RETURN_SALE') return;
+
             const jrnDate = new Date(jrn.date);
             if (jrnDate >= dateFrom && jrnDate <= dateTo) {
                 const amount = parseFloat(String(jrn.total || '0').replace(/[^0-9.-]+/g, "")) || 0;
@@ -351,20 +388,27 @@ window.fetchAndUpdateStats = async function() {
             }
         });
 
-        // 4. الحسابات النهائية
-        const netProfit = totalSales - totalCOGS - totalExpenses;
-        const profitMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
+        // الحسابات الصافية
+        const netSales = totalGrossSales - totalReturns;
+        const netCOGS = totalGrossCOGS - totalReturnsCOGS;
+        const grossProfit = netSales - netCOGS;
+        const netProfit = grossProfit - totalExpenses;
+        
+        const profitMargin = netSales > 0 ? (netProfit / netSales) * 100 : 0;
 
         const totalStockValue = products.reduce((sum, p) => sum + ((Number(p.stock_qty) || 0) * (Number(p.cost) || 0)), 0);
         const lowStockProducts = products.filter(p => (Number(p.stock_qty) || 0) <= (p.min_stock || 5));
 
-        // 5. تحديث الواجهة DOM
+        // تحديث الواجهة
         const formatMoney = (num) => Number(num).toLocaleString('en-US', {minimumFractionDigits: 2});
 
-        document.getElementById('dash-sales').innerText = formatMoney(totalSales);
-        document.getElementById('dash-sales-count').innerHTML = `<i class="fas fa-file-invoice ml-1"></i> ${salesCount} فاتورة`;
+        document.getElementById('dash-sales').innerText = formatMoney(netSales);
+        document.getElementById('dash-sales-count').innerHTML = `<i class="fas fa-file-invoice ml-1"></i> ${salesCount} مبيعات | ${returnsCount} مرتجعات`;
         
-        document.getElementById('dash-cogs').innerText = formatMoney(totalCOGS);
+        document.getElementById('dash-returns').innerText = formatMoney(totalReturns);
+        document.getElementById('dash-returns-count').innerHTML = `<i class="fas fa-undo ml-1"></i> ${returnsCount} عملية استرداد`;
+
+        document.getElementById('dash-cogs').innerText = formatMoney(netCOGS);
         
         document.getElementById('dash-expenses').innerText = formatMoney(totalExpenses);
         document.getElementById('dash-exp-count').innerHTML = `<i class="fas fa-clipboard-list ml-1"></i> ${expCount} قيد/مصروف`;
@@ -379,9 +423,9 @@ window.fetchAndUpdateStats = async function() {
         marginBar.style.width = `${Math.min(Math.max(profitMargin, 0), 100)}%`;
 
         if (netProfit < 0) {
-            profitCard.className = "bg-gradient-to-br from-rose-500 to-red-600 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 shadow-lg text-white relative overflow-hidden transition-colors";
+            profitCard.className = "bg-gradient-to-br from-rose-500 to-red-600 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 shadow-lg text-white relative overflow-hidden transition-colors flex flex-col justify-between";
         } else {
-            profitCard.className = "bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 shadow-lg text-white relative overflow-hidden transition-colors";
+            profitCard.className = "bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 shadow-lg text-white relative overflow-hidden transition-colors flex flex-col justify-between";
         }
 
         document.getElementById('dash-stock-value').innerHTML = `${formatMoney(totalStockValue)} <span class="text-xs md:text-sm font-normal text-slate-400 font-sans">ج.م</span>`;
@@ -402,10 +446,6 @@ window.fetchAndUpdateStats = async function() {
     }
 };
 
-// ==========================================
-// الجزء الثالث: الدوال العامة (Global Actions)
-// ==========================================
-
 window.navigateToModule = function(moduleId) {
     if (typeof executeModuleLoad === 'function') {
         const buttons = document.querySelectorAll('[id^="btn-"]');
@@ -421,5 +461,4 @@ window.navigateToModule = function(moduleId) {
     }
 };
 
-// بدء تشغيل النظام
 initDB();

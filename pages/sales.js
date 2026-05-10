@@ -1,6 +1,6 @@
 /**
- * MENTRA ERP - Smart POS Engine v3.1 (Mobile Native Optimized + Bug Fixes)
- * Features: Mobile UI, Haptic Feedback, SweetAlert2, No-Table Layout
+ * MENTRA ERP - Smart POS Engine v3.2 (Mobile Native + Payment Status Option)
+ * Features: Mobile UI, Haptic Feedback, SweetAlert2, Credit Sales (آجل)
  */
 
 (function() {
@@ -70,7 +70,11 @@
         #pb-discount-wrap { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:var(--radius-md); padding:5px 8px; flex-shrink:0; }
         #pb-discount-wrap span { font-size:8px; font-weight:900; color:var(--error); }
         .sync-discount { width:46px; background:transparent; border:none; color:#fff; font-size:15px; text-align:center; outline:none; font-family:monospace; font-weight:900; }
+        
+        /* New Input Styles */
         .sync-customer { flex:1; min-width:0; background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-md); padding:6px 10px; font-size:14px; font-weight:700; color:#fff; outline:none; }
+        .sync-status { background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-md); padding:6px; font-size:12px; font-weight:700; color:#fff; outline:none; cursor:pointer; }
+        
         #pb-row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         .pb-btn { border:none; cursor:pointer; border-radius:var(--radius-lg); padding:12px; font-weight:900; font-size:.9rem; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:var(--shadow-md); }
         .pb-cash { background:var(--success); color:var(--neutral-900); }
@@ -84,7 +88,12 @@
         .dp-total-box { border-top:1px solid rgba(255,255,255,.1); padding-top:16px; text-align:center; margin-bottom:20px; }
         .dp-total-label { font-size:.6rem; font-weight:900; color:var(--success); }
         .dp-total-val { font-size:3.5rem; font-weight:900; color:#fff; font-family:monospace; line-height:1.1; }
-        .dp-customer { width:100%; background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-lg); padding:12px 14px; color:#fff; font-size:16px; font-weight:700; outline:none; margin-bottom:12px; box-sizing:border-box; }
+        
+        /* Desktop Inputs Row */
+        .dp-input-row { display:flex; gap:8px; margin-bottom:12px; }
+        .dp-customer { flex:1; background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-lg); padding:12px 14px; color:#fff; font-size:14px; font-weight:700; outline:none; }
+        .dp-status { width:110px; background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-lg); padding:12px 10px; color:#fff; font-size:14px; font-weight:700; outline:none; cursor:pointer; }
+        
         .dp-btns { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
         .dp-btn { border:none; cursor:pointer; border-radius:var(--radius-lg); padding:16px; font-weight:900; font-size:1rem; display:flex; align-items:center; justify-content:center; gap:8px; }
         .dp-cash { background:var(--success); color:var(--neutral-900); }
@@ -152,9 +161,18 @@
                     <div class="dp-total-label">المطلوب دفعه</div>
                     <div class="dp-total-val sync-final-total">0.00</div>
                 </div>
-                <input type="text" class="dp-customer sync-customer" oninput="syncInputs('sync-customer', this.value)" placeholder="اسم العميل (اختياري)...">
+                
+                <!-- خيارات العميل وحالة الدفع (ديسكتوب) -->
+                <div class="dp-input-row">
+                    <input type="text" class="dp-customer sync-customer" oninput="syncInputs('sync-customer', this.value)" placeholder="اسم العميل...">
+                    <select class="dp-status sync-status" onchange="syncInputs('sync-status', this.value)">
+                        <option value="paid">✅ مسدد</option>
+                        <option value="pending">⏳ آجل</option>
+                    </select>
+                </div>
+
                 <div class="dp-btns">
-                    <button class="dp-btn dp-cash" onclick="processCheckout('CASH')"><i class="fas fa-money-bill-wave"></i> كاش</button>
+                    <button class="dp-btn dp-cash" onclick="processCheckout('CASH')"><i class="fas fa-money-bill-wave"></i> كاش / اعتماد</button>
                     <button class="dp-btn dp-card" onclick="processCheckout('CARD')"><i class="fas fa-credit-card"></i> شبكة</button>
                 </div>
             </div>
@@ -171,10 +189,17 @@
                     <span>خصم</span>
                     <input type="number" class="sync-discount" oninput="updateTotals(this.value)" value="0" placeholder="0">
                 </div>
-                <input type="text" class="sync-customer" oninput="syncInputs('sync-customer', this.value)" placeholder="العميل...">
+            </div>
+            <!-- خيارات العميل وحالة الدفع (موبايل) -->
+            <div style="display:flex; gap:6px; margin-bottom:10px;">
+                <input type="text" class="sync-customer" oninput="syncInputs('sync-customer', this.value)" placeholder="اسم العميل...">
+                <select class="sync-status" onchange="syncInputs('sync-status', this.value)">
+                    <option value="paid">✅ كاش/مسدد</option>
+                    <option value="pending">⏳ آجل (دين)</option>
+                </select>
             </div>
             <div id="pb-row2">
-                <button class="pb-btn pb-cash" onclick="processCheckout('CASH')"><i class="fas fa-money-bill-wave"></i> كاش</button>
+                <button class="pb-btn pb-cash" onclick="processCheckout('CASH')"><i class="fas fa-check-double"></i> كاش / اعتماد الفاتورة</button>
                 <button class="pb-btn pb-card" onclick="processCheckout('CARD')"><i class="fas fa-credit-card"></i> شبكة</button>
             </div>
         </div>
@@ -217,7 +242,6 @@
 
     // --- المنطق البرمجي (Logic) ---
 
-    // الدالة المفقودة: مزامنة العناصر بين شاشة الديسكتوب والموبايل
     window.setAllText = (className, value) => {
         document.querySelectorAll('.' + className).forEach(el => el.innerText = value);
     };
@@ -291,6 +315,7 @@
                 id: product.id,
                 name: product.name_ar || 'منتج',
                 price: Number(product.price || 0),
+                cost: Number(product.cost || 0),
                 qty: 1,
                 maxStock: availableStock
             });
@@ -327,7 +352,6 @@
     window.updateTotals = (discountValue = null) => {
         const sub = state.cart.reduce((acc, i) => acc + (i.price * i.qty), 0);
         
-        // مزامنة حقل الخصم بين الموبايل والديسكتوب
         let disc = 0;
         if(discountValue !== null) {
             disc = parseFloat(discountValue) || 0;
@@ -384,12 +408,29 @@
             Swal.fire({ icon: 'error', title: 'الخصم غير منطقي', toast: true, position: 'top', timer: 2000, showConfirmButton: false }); return;
         }
 
+        // --- جلب وقراءة حالة الدفع (مدفوع / آجل) ---
+        const paymentStatus = document.querySelector('.sync-status').value; // 'paid' or 'pending'
+        let customerName = document.querySelector('.sync-customer').value.trim();
+
+        // إجبار الكاشير على إدخال اسم العميل إذا اختار (آجل)
+        if (paymentStatus === 'pending' && customerName === '') {
+            playFeedback('delete');
+            Swal.fire({ 
+                icon: 'warning', 
+                title: 'مطلوب اسم العميل', 
+                text: 'لا يمكن تسجيل فاتورة آجلة (دين) بدون تحديد اسم العميل.', 
+                toast: true, position: 'top', timer: 3000, showConfirmButton: false 
+            }); 
+            return;
+        }
+
+        if (customerName === '') customerName = "عميل نقدي";
+
         try {
-            const customerName = document.querySelector('.sync-customer').value || "عميل نقدي";
             const discountApplied = parseFloat(document.querySelector('.sync-discount').value) || 0;
             const today = new Date().toISOString(); 
             
-            await db.transaction('rw', db.invoices, db.invoice_items, db.products, db.journal, db.journal_items, async () => {
+            await db.transaction('rw', db.invoices, db.invoice_items, db.products, db.journal, db.journal_items, db.accounts, async () => {
                 const invId = await db.invoices.add({
                     invoice_number: 'INV-' + Date.now().toString().slice(-6),
                     customer_vendor_name: customerName,
@@ -397,7 +438,7 @@
                     total: finalTotal,
                     method: method,
                     type: 'SALE',
-                    status: 'PAID',
+                    status: paymentStatus, // حفظ الحالة (paid أو pending) بدلاً من أن تكون دائما PAID
                     discount: discountApplied
                 });
 
@@ -424,16 +465,21 @@
                     totalRevenue += item.price * item.qty;
                 }
 
-                // إنشاء القيود المحاسبية التلقائية
-                await createSalesJournalEntry(invId, finalTotal, totalCost, totalRevenue, method, today);
+                // إنشاء القيود المحاسبية وتمرير حالة الدفع لتوجيهها للحساب الصحيح
+                await createSalesJournalEntry(invId, finalTotal, totalCost, totalRevenue, method, today, paymentStatus);
             });
 
             playFeedback('success');
-            Swal.fire({ title: 'تم الدفع بنجاح 🎉', text: `الإجمالي: ${finalTotal.toFixed(2)}`, icon: 'success', timer: 2000, showConfirmButton: false, customClass: { popup: 'rounded-3xl' } });
+            
+            // رسالة النجاح تتغير حسب نوع الفاتورة
+            const successMsg = paymentStatus === 'pending' ? 'تم تسجيل الفاتورة آجلة ⏳' : 'تم التحصيل بنجاح 🎉';
+            Swal.fire({ title: successMsg, text: `الإجمالي: ${finalTotal.toFixed(2)}`, icon: 'success', timer: 2000, showConfirmButton: false, customClass: { popup: 'rounded-3xl' } });
 
+            // إعادة تعيين الشاشة
             state.cart = [];
             syncInputs('sync-customer', '');
             syncInputs('sync-discount', 0);
+            syncInputs('sync-status', 'paid'); // إرجاع القائمة الافتراضية للكاش
             document.getElementById('smart-search').value = '';
             document.getElementById('search-results').innerHTML = '<p style="font-size:.7rem;color:#94a3b8;font-weight:700;width:100%;text-align:center;padding:6px 0"><i class="fas fa-search" style="margin-left:4px"></i> اكتب للبحث</p>';
             renderCart();
@@ -445,14 +491,13 @@
     };
 
     // دالة إنشاء القيود المحاسبية للمبيعات
-    async function createSalesJournalEntry(invoiceId, totalAmount, totalCost, totalRevenue, paymentMethod, date) {
+    async function createSalesJournalEntry(invoiceId, totalAmount, totalCost, totalRevenue, paymentMethod, date, paymentStatus) {
         try {
-            // التأكد من وجود الحسابات الأساسية
             await ensureDefaultAccountsExist();
             
-            // جلب الحسابات المطلوبة
             const cashAccount = await db.accounts.where('code').equals('1001').first();
             const bankAccount = await db.accounts.where('code').equals('1002').first();
+            const receivableAccount = await db.accounts.where('code').equals('1003').first(); // حساب عملاء مدينون
             const salesRevenueAccount = await db.accounts.where('code').equals('4001').first();
             const cogsAccount = await db.accounts.where('code').equals('5001').first();
             const inventoryAccount = await db.accounts.where('code').equals('6001').first();
@@ -460,33 +505,43 @@
             const journalId = await db.journal.add({
                 date: date,
                 ref_no: `INV-${invoiceId}`,
-                description: `بيع نقدي - فاتورة رقم INV-${invoiceId}`,
+                description: `مبيعات - فاتورة رقم INV-${invoiceId}`,
                 total: totalAmount,
                 type: 'SALE'
             });
 
-            // القيود المحاسبية للمبيعات
-            if (paymentMethod === 'CASH' && cashAccount) {
-                // مدين: الصندوق
+            // توجيه الطرف المدين (الصندوق أو البنك أو العملاء)
+            if (paymentStatus === 'pending' && receivableAccount) {
+                // الفاتورة آجلة -> تذهب الأموال لحساب العملاء (دين)
                 await db.journal_items.add({
                     journal_id: journalId,
-                    account_id: cashAccount.id,
+                    account_id: receivableAccount.id,
                     debit: totalAmount,
                     credit: 0,
-                    description: `إيرادات بيع نقد - INV-${invoiceId}`
+                    description: `مبيعات آجلة (دين مستحق) - INV-${invoiceId}`
                 });
-            } else if (paymentMethod === 'CARD' && bankAccount) {
-                // مدين: البنك
-                await db.journal_items.add({
-                    journal_id: journalId,
-                    account_id: bankAccount.id,
-                    debit: totalAmount,
-                    credit: 0,
-                    description: `إيرادات بيع شبكة - INV-${invoiceId}`
-                });
+            } else {
+                // الفاتورة مدفوعة -> تذهب الأموال للصندوق أو البنك
+                if (paymentMethod === 'CASH' && cashAccount) {
+                    await db.journal_items.add({
+                        journal_id: journalId,
+                        account_id: cashAccount.id,
+                        debit: totalAmount,
+                        credit: 0,
+                        description: `إيرادات بيع نقد - INV-${invoiceId}`
+                    });
+                } else if (paymentMethod === 'CARD' && bankAccount) {
+                    await db.journal_items.add({
+                        journal_id: journalId,
+                        account_id: bankAccount.id,
+                        debit: totalAmount,
+                        credit: 0,
+                        description: `إيرادات بيع شبكة - INV-${invoiceId}`
+                    });
+                }
             }
 
-            // دائن: إيرادات المبيعات
+            // الطرف الدائن: إيرادات المبيعات
             if (salesRevenueAccount) {
                 await db.journal_items.add({
                     journal_id: journalId,
@@ -497,39 +552,25 @@
                 });
             }
 
-            // مدين: تكلفة البضاعة المباعة (COGS)
+            // قيد تكلفة البضاعة
             if (cogsAccount && totalCost > 0) {
-                await db.journal_items.add({
-                    journal_id: journalId,
-                    account_id: cogsAccount.id,
-                    debit: totalCost,
-                    credit: 0,
-                    description: `تكلفة البضاعة المباعة - INV-${invoiceId}`
-                });
+                await db.journal_items.add({ journal_id: journalId, account_id: cogsAccount.id, debit: totalCost, credit: 0, description: `تكلفة البضاعة المباعة - INV-${invoiceId}` });
             }
-
-            // دائن: المخزون (تخفيض بقيمة التكلفة)
             if (inventoryAccount && totalCost > 0) {
-                await db.journal_items.add({
-                    journal_id: journalId,
-                    account_id: inventoryAccount.id,
-                    debit: 0,
-                    credit: totalCost,
-                    description: `تخفيض المخزون - INV-${invoiceId}`
-                });
+                await db.journal_items.add({ journal_id: journalId, account_id: inventoryAccount.id, debit: 0, credit: totalCost, description: `تخفيض المخزون - INV-${invoiceId}` });
             }
 
         } catch (error) {
             console.error('Error creating journal entry:', error);
-            // لا نوقف العملية إذا فشلت القيود المحاسبية
         }
     }
 
-    // دالة التأكد من وجود الحسابات الأساسية
+    // إضافة حساب (العملاء المدينون) للدليل المحاسبي
     async function ensureDefaultAccountsExist() {
         const defaultAccounts = [
             { code: '1001', name_ar: 'الصندوق', type: 'asset', balance: 0 },
             { code: '1002', name_ar: 'البنك', type: 'asset', balance: 0 },
+            { code: '1003', name_ar: 'عملاء مدينون', type: 'asset', balance: 0 }, // الحساب الجديد للآجل
             { code: '2001', name_ar: 'موردين دائنون', type: 'liability', balance: 0 },
             { code: '3001', name_ar: 'رأس المال', type: 'equity', balance: 0 },
             { code: '4001', name_ar: 'إيرادات المبيعات', type: 'income', balance: 0 },
@@ -576,152 +617,74 @@
 
     window.startBarcodeScanner = async () => {
         try {
-            // التحقق من توفر مكتبة ZXing
             if (typeof ZXing === 'undefined') {
-                Swal.fire({ 
-                    icon: 'error', 
-                    title: 'مكتبة المسح غير متاحة', 
-                    text: 'يرجى تحديث الصفحة والمحاولة مرة أخرى',
-                    timer: 3000,
-                    showConfirmButton: false 
-                });
+                Swal.fire({ icon: 'error', title: 'مكتبة المسح غير متاحة', text: 'يرجى تحديث الصفحة', timer: 3000, showConfirmButton: false });
                 return;
             }
 
-            // تهيئة القارئ
             codeReader = new ZXing.BrowserMultiFormatReader();
             const modal = document.getElementById('scanner-modal');
             const video = document.getElementById('scanner-video');
             const status = document.getElementById('scanner-status');
 
-            // إظهار النافذة
             modal.classList.add('active');
             modal.classList.add('scanner-scanning');
             status.textContent = 'جاري تشغيل الكاميرا...';
 
-            // طلب الوصول للكاميرا
             try {
-                currentStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' }
-                });
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 video.srcObject = currentStream;
                 await video.play();
 
                 status.textContent = 'ضع الباركود داخل الإطار';
 
-                // بدء المسح
                 codeReader.decodeFromVideoDevice(undefined, video, (result, err) => {
-                    if (result) {
-                        handleBarcodeResult(result.text);
-                    }
-                    if (err && !(err instanceof ZXing.NotFoundException)) {
-                        console.error(err);
-                    }
+                    if (result) handleBarcodeResult(result.text);
                 });
-
             } catch (cameraError) {
-                console.error('Camera error:', cameraError);
                 stopBarcodeScanner();
-                Swal.fire({ 
-                    icon: 'error', 
-                    title: 'لا يمكن الوصول للكاميرا', 
-                    text: 'يرجى التأكد من منح صلاحيات الكاميرا',
-                    timer: 3000,
-                    showConfirmButton: false 
-                });
+                Swal.fire({ icon: 'error', title: 'لا يمكن الوصول للكاميرا', timer: 3000, showConfirmButton: false });
             }
-
         } catch (error) {
-            console.error('Scanner initialization error:', error);
-            Swal.fire({ 
-                icon: 'error', 
-                title: 'خطأ في تشغيل المسح', 
-                text: 'حدث خطأ أثناء تهيئة الماسح الضوئي',
-                timer: 3000,
-                showConfirmButton: false 
-            });
+            Swal.fire({ icon: 'error', title: 'خطأ في تشغيل المسح', timer: 3000, showConfirmButton: false });
         }
     };
 
     window.stopBarcodeScanner = () => {
         const modal = document.getElementById('scanner-modal');
         const video = document.getElementById('scanner-video');
-        const status = document.getElementById('scanner-status');
-
-        // إيقاف القارئ
-        if (codeReader) {
-            codeReader.reset();
-            codeReader = null;
-        }
-
-        // إيقاف الكاميرا
-        if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
-            currentStream = null;
-        }
-
-        // إيقاف الفيديو
-        if (video.srcObject) {
-            video.srcObject = null;
-        }
-
-        // إخفاء النافذة
+        if (codeReader) { codeReader.reset(); codeReader = null; }
+        if (currentStream) { currentStream.getTracks().forEach(track => track.stop()); currentStream = null; }
+        if (video.srcObject) { video.srcObject = null; }
         modal.classList.remove('active', 'scanner-scanning', 'scanner-found');
-        status.textContent = 'ضع الباركود داخل الإطار';
     };
 
     window.handleBarcodeResult = async (barcodeText) => {
         const modal = document.getElementById('scanner-modal');
         const status = document.getElementById('scanner-status');
 
-        // عرض نجاح المسح
         modal.classList.remove('scanner-scanning');
         modal.classList.add('scanner-found');
         status.textContent = 'تم قراءة الباركود: ' + barcodeText;
 
-        // vibration feedback
-        if (navigator.vibrate) {
-            navigator.vibrate([100, 50, 100]);
-        }
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
-        // البحث عن المنتج
         try {
-            const products = await db.products
-                .filter(p => p.barcode === barcodeText || p.sku === barcodeText)
-                .toArray();
-
+            const products = await db.products.filter(p => p.barcode === barcodeText || p.sku === barcodeText).toArray();
             if (products.length > 0) {
-                // إضافة أول منتج تم العثور عليه
                 addToCart(products[0]);
-                
-                // إغلاق المسح بعد فترة وجيزة
                 setTimeout(() => {
                     stopBarcodeScanner();
-                    // التركيز على حقل البحث
                     document.getElementById('smart-search').focus();
                 }, 1000);
             } else {
-                // المنتج غير موجود
                 status.textContent = 'المنتج غير موجود';
                 modal.classList.remove('scanner-found');
                 modal.classList.add('scanner-scanning');
-                
-                setTimeout(() => {
-                    status.textContent = 'ضع الباركود داخل الإطار';
-                }, 2000);
             }
-        } catch (error) {
-            console.error('Error searching for product:', error);
-            status.textContent = 'حدث خطأ في البحث';
-            setTimeout(() => {
-                status.textContent = 'ضع الباركود داخل الإطار';
-                modal.classList.remove('scanner-found');
-                modal.classList.add('scanner-scanning');
-            }, 2000);
-        }
+        } catch (error) { stopBarcodeScanner(); }
     };
 
-    // إغلاق المسح عند الضغط على زر ESC
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.getElementById('scanner-modal').classList.contains('active')) {
             stopBarcodeScanner();

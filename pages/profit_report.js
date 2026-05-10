@@ -1,11 +1,16 @@
 /**
- * MENTRA ERP - Smart Profit, Loss & Cash Flow Report (v11.0 Pro Max + Pagination + Fully Responsive)
- * الميزات: متجاوب مع جميع الشاشات، بحث بالتاريخ، ترقيم العمليات، قراءة المصروفات من القيود
+ * MENTRA ERP - Smart Profit, Loss & Cash Flow Report (v12.0 Pro Max)
+ * الميزات: متجاوب، بحث، ترقيم، دمج كامل ودقيق للمرتجعات مع الإيرادات والتكاليف
  */
 
 (function() {
-    // 1. الاتصال بقاعدة البيانات
-    const db = new Dexie("MentraLocalCache");
+    
+    function getCurrentDBName() {
+        return localStorage.getItem('mentra_current_db') || 'MentraLocalCache';
+    }
+
+    const db = new Dexie(getCurrentDBName());
+
     db.version(4).stores({
         settings: 'id, project_name, shop_name, phone, logo',
         local_users: '++id, username, full_name, role', 
@@ -19,15 +24,13 @@
         stock_movements: '++id, product_id, type, qty, date, ref_id'
     });
 
-    // حالة الصفحة للتحكم في الترقيم
     const state = {
         transactions: [],
         currentPage: 1,
-        itemsPerPage: 5
+        itemsPerPage: 6 // تم الزيادة لـ 6 لتحسين العرض
     };
 
     const renderLayout = () => {
-        // إعداد تواريخ الشهر الحالي كافتراضي
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
         firstDay.setHours(12);
@@ -45,11 +48,10 @@
                     </div>
                     <div>
                         <h1 class="text-xl sm:text-2xl md:text-3xl font-black text-slate-800 tracking-tight">تقرير الأرباح والسيولة</h1>
-                        <p class="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">تحليل مالي دقيق للفترة المحددة</p>
+                        <p class="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">تحليل مالي دقيق شامل المبيعات والمرتجعات</p>
                     </div>
                 </div>
                 
-                <!-- فلاتر البحث بالتاريخ المتقدمة (متجاوبة) -->
                 <div class="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0">
                     <div class="flex flex-col sm:flex-row items-center gap-2 bg-slate-50 p-2 rounded-xl md:rounded-2xl border border-slate-200 w-full md:w-auto">
                         <div class="flex gap-1 w-full sm:w-auto justify-center">
@@ -72,27 +74,27 @@
             <!-- Smart KPI Section (Grid المتجاوب) -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 <!-- 1. المحاسبة (الربح الفعلي) -->
-                <div class="bg-white rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 shadow-sm border border-slate-100 relative overflow-hidden group">
+                <div class="bg-white rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 shadow-sm border border-slate-100 relative overflow-hidden group flex flex-col">
                     <div class="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
                     <div class="absolute -left-6 -top-6 w-24 h-24 md:w-32 md:h-32 bg-emerald-50 rounded-full group-hover:scale-150 transition-transform duration-700 z-0 opacity-50"></div>
                     
                     <h2 class="relative z-10 text-base md:text-lg font-black text-slate-800 mb-4 md:mb-6 flex items-center gap-2">
                         <i class="fas fa-calculator text-emerald-500 text-lg md:text-xl"></i> الربح المحاسبي الفعلي
                     </h2>
-                    <div class="relative z-10 space-y-2 md:space-y-3" id="accounting-kpis">
+                    <div class="relative z-10 space-y-2 flex-1 flex flex-col justify-between" id="accounting-kpis">
                         <!-- سيتم ملؤه ديناميكياً -->
                     </div>
                 </div>
 
                 <!-- 2. السيولة (الفلوس في الجيب) -->
-                <div class="bg-gradient-to-br from-slate-900 to-[#0f172a] rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 shadow-xl relative overflow-hidden text-white group">
+                <div class="bg-gradient-to-br from-slate-900 to-[#0f172a] rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 shadow-xl relative overflow-hidden text-white group flex flex-col">
                     <div class="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
                     <div class="absolute -left-6 -bottom-6 text-7xl md:text-8xl text-white/5 group-hover:-rotate-12 transition-transform duration-700"><i class="fas fa-wallet"></i></div>
                     
                     <h2 class="relative z-10 text-base md:text-lg font-black mb-4 md:mb-6 flex items-center gap-2">
                         <i class="fas fa-coins text-blue-400 text-lg md:text-xl"></i> تحليل السيولة النقدية (الدرج)
                     </h2>
-                    <div class="relative z-10 space-y-2 md:space-y-3" id="cashflow-kpis">
+                    <div class="relative z-10 space-y-2 flex-1 flex flex-col justify-between" id="cashflow-kpis">
                         <!-- سيتم ملؤه ديناميكياً -->
                     </div>
                 </div>
@@ -120,7 +122,6 @@
                     </span>
                 </div>
                 
-                <!-- Table Wrapper with Edge-to-Edge scroll on mobile -->
                 <div class="-mx-4 md:mx-0 px-4 md:px-0 overflow-x-auto custom-scrollbar pb-4">
                     <table class="w-full text-right min-w-[650px]">
                         <thead>
@@ -139,30 +140,9 @@
                     </table>
                 </div>
                 
-                <!-- أزرار الترقيم المتجاوبة -->
                 <div id="profit-pagination" class="mt-4 md:mt-6 flex flex-wrap justify-center items-center gap-2 md:gap-3"></div>
             </div>
             
-            <!-- إعلان النسخة السحابية -->
-            <div class="bg-gradient-to-r from-slate-900 via-[#0f172a] to-blue-900 rounded-[1.5rem] md:rounded-[2rem] p-1 shadow-lg mt-4">
-                <div class="bg-white/5 backdrop-blur-md rounded-[1.3rem] md:rounded-[1.8rem] p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-5">
-                    <div class="flex flex-col sm:flex-row items-center gap-3 md:gap-4 text-center sm:text-right">
-                        <div class="w-12 h-12 md:w-16 md:h-16 bg-blue-500 rounded-xl md:rounded-[1.5rem] flex items-center justify-center text-white text-xl md:text-2xl shadow-lg shrink-0">
-                            <i class="fas fa-cloud"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-white font-black text-sm md:text-base mb-1">هل تمتلك أكثر من فرع؟</h4>
-                            <p class="text-blue-200/80 text-[10px] md:text-[11px] font-bold leading-relaxed max-w-sm">
-                                النسخة السحابية <span class="bg-blue-500/20 text-blue-300 px-1 rounded mx-1 whitespace-nowrap">Mentra Business</span> تدعم الفروع والمزامنة.
-                            </p>
-                        </div>
-                    </div>
-                    <a href="https://wa.me/201211934816" target="_blank" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white px-5 md:px-6 py-3 md:py-3.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 group active:scale-95 whitespace-nowrap">
-                        <i class="fab fa-whatsapp text-base md:text-lg text-emerald-400 group-hover:scale-110 transition-transform"></i>
-                        تواصل للمبيعات
-                    </a>
-                </div>
-            </div>
         </div>
         
         <style>
@@ -175,7 +155,6 @@
         `;
     };
 
-    // --- دوال مساعدة للتاريخ ---
     window.setProfitQuickDate = function(type) {
         const today = new Date();
         const toInput = document.getElementById('profit-date-to');
@@ -193,25 +172,25 @@
         window.refreshProfitReport();
     };
 
-    // --- المحرك المتقدم (حساب الأرباح + المشتريات + القيود اليومية) ---
     async function calculateProfitData() {
         try {
             if (!db.isOpen()) await db.open();
             
-            // قراءة التواريخ من الحقول
             const fromStr = document.getElementById('profit-date-from').value;
             const toStr = document.getElementById('profit-date-to').value;
             
             const dateFrom = new Date(fromStr); dateFrom.setHours(0, 0, 0, 0);
             const dateTo = new Date(toStr); dateTo.setHours(23, 59, 59, 999);
             
-            let totalRevenue = 0; 
-            let totalCOGS = 0; 
+            let totalGrossRevenue = 0; // إجمالي المبيعات قبل المرتجع
+            let totalReturns = 0;      // إجمالي المرتجعات
+            let totalGrossCOGS = 0;    // التكلفة قبل المرتجع
+            let totalReturnsCOGS = 0;  // تكلفة البضاعة المرتجعة
+
             let totalPurchases = 0; 
             let totalExpenses = 0; 
             let transactions = [];
             
-            // جلب الداتا بشكل متوازي
             const [allInvoices, allInvoiceItems, allProducts, allJournals] = await Promise.all([
                 db.invoices.toArray(),
                 db.invoice_items.toArray(),
@@ -222,7 +201,7 @@
             const productMap = new Map();
             allProducts.forEach(p => productMap.set(p.id, p));
             
-            // 1. معالجة الفواتير
+            // 1. معالجة الفواتير (مبيعات، مشتريات، مرتجعات)
             for (const inv of allInvoices) {
                 if (!inv.date) continue;
                 const invDate = new Date(inv.date);
@@ -235,8 +214,9 @@
                 const typeStr = String(inv.type || '').toLowerCase().trim();
                 const refNo = inv.invoice_number || `INV-${inv.id}`;
                 
+                // ---- المبيعات ----
                 if (typeStr === 'sale' || typeStr === 'sales' || typeStr.includes('مبيع')) {
-                    totalRevenue += amount;
+                    totalGrossRevenue += amount;
                     
                     let invoiceCOGS = 0;
                     const items = allInvoiceItems.filter(item => item.invoice_id === inv.id);
@@ -245,13 +225,14 @@
                         const unitCost = product ? (parseFloat(product.cost) || 0) : 0; 
                         invoiceCOGS += (unitCost * parseFloat(item.qty || 0));
                     }
-                    totalCOGS += invoiceCOGS;
+                    totalGrossCOGS += invoiceCOGS;
 
                     transactions.push({
                         date: inv.date, ref: refNo, description: 'مبيعات للعملاء', 
                         out: 0, in: amount, impact: 'فاتورة مبيعات', type: 'sale'
                     });
                 } 
+                // ---- المشتريات ----
                 else if (typeStr === 'purchase' || typeStr === 'purchases' || typeStr.includes('مشتري')) {
                     totalPurchases += amount;
                     transactions.push({
@@ -259,13 +240,35 @@
                         out: amount, in: 0, impact: 'فاتورة مشتريات', type: 'purchase'
                     });
                 }
+                // ---- المرتجعات (الجديد) ----
+                else if (typeStr === 'return_sale' || typeStr.includes('مرتجع')) {
+                    const absAmount = Math.abs(amount);
+                    totalReturns += absAmount; // نجمع كقيمة موجبة للتوضيح
+
+                    let returnCOGS = 0;
+                    const items = allInvoiceItems.filter(item => item.invoice_id === inv.id);
+                    for(const item of items) {
+                        const product = productMap.get(item.product_id);
+                        const unitCost = product ? (parseFloat(product.cost) || 0) : 0; 
+                        returnCOGS += (unitCost * Math.abs(parseFloat(item.qty || 0)));
+                    }
+                    totalReturnsCOGS += returnCOGS;
+
+                    transactions.push({
+                        date: inv.date, ref: refNo, description: 'مرتجع مبيعات', 
+                        out: absAmount, in: 0, impact: 'مرتجع مبيعات', type: 'return'
+                    });
+                }
             }
 
-            // 2. معالجة القيود اليومية
+            // 2. معالجة القيود اليومية (المصروفات)
             for (const jrn of allJournals) {
                 if (!jrn.date) continue;
                 const jrnDate = new Date(jrn.date);
                 if (jrnDate < dateFrom || jrnDate > dateTo) continue;
+
+                // نتجاهل القيود الناتجة أوتوماتيكياً من المبيعات والمشتريات والمرتجعات لمنع التكرار
+                if (jrn.type === 'SALE' || jrn.type === 'PURCHASE' || jrn.type === 'RETURN_SALE') continue;
 
                 const amount = parseFloat(String(jrn.total || '0').replace(/[^0-9.-]+/g, "")) || 0;
                 if (amount === 0) continue;
@@ -282,12 +285,20 @@
                 });
             }
             
-            const grossProfit = totalRevenue - totalCOGS; 
+            // --- الحسابات الصافية والدقيقة ---
+            const netRevenue = totalGrossRevenue - totalReturns;
+            const netCOGS = totalGrossCOGS - totalReturnsCOGS;
+            
+            const grossProfit = netRevenue - netCOGS; 
             const netIncome = grossProfit - totalExpenses; 
-            const netCashFlow = totalRevenue - totalPurchases - totalExpenses;
+            
+            // السيولة: ما دخل - ما خرج (المشتريات + المصروفات + المرتجعات)
+            const netCashFlow = totalGrossRevenue - totalPurchases - totalExpenses - totalReturns;
             
             return {
-                totalRevenue, totalCOGS, totalPurchases, totalExpenses,
+                totalGrossRevenue, totalReturns, netRevenue,
+                totalGrossCOGS, totalReturnsCOGS, netCOGS,
+                totalPurchases, totalExpenses,
                 grossProfit, netIncome, netCashFlow,
                 transactions
             };
@@ -298,45 +309,60 @@
         }
     }
 
-    // --- تحديث الواجهة المتجاوبة ---
     function renderDashboards(data) {
         const formatMoney = (n) => Number(n).toLocaleString('en-US', {minimumFractionDigits: 2});
 
-        // 1. الأرباح
+        // 1. الأرباح (تم دمج المرتجعات فيها بدقة)
         document.getElementById('accounting-kpis').innerHTML = `
-            <div class="flex justify-between items-center bg-slate-50 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl">
-                <span class="text-[10px] md:text-xs font-black text-slate-500 uppercase">إجمالي المبيعات</span>
-                <span class="text-sm md:text-base font-black text-emerald-600 font-mono">${formatMoney(data.totalRevenue)}</span>
+            <div class="space-y-1">
+                <div class="flex justify-between items-center bg-slate-50 p-2 md:p-2.5 rounded-lg md:rounded-xl">
+                    <span class="text-[10px] md:text-xs font-black text-slate-500">إجمالي المبيعات</span>
+                    <span class="text-xs md:text-sm font-black text-emerald-600 font-mono">${formatMoney(data.totalGrossRevenue)}</span>
+                </div>
+                <div class="flex justify-between items-center bg-amber-50/50 p-2 md:p-2.5 rounded-lg md:rounded-xl border border-amber-100/50">
+                    <span class="text-[10px] md:text-xs font-black text-amber-600">(-) مرتجعات مبيعات</span>
+                    <span class="text-xs md:text-sm font-black text-amber-600 font-mono">${formatMoney(data.totalReturns)}</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-100 p-2 md:p-2.5 rounded-lg md:rounded-xl border border-slate-200">
+                    <span class="text-[10px] md:text-xs font-black text-slate-700 uppercase">(=) صافي المبيعات</span>
+                    <span class="text-xs md:text-sm font-black text-slate-800 font-mono">${formatMoney(data.netRevenue)}</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-50 p-2 md:p-2.5 rounded-lg md:rounded-xl mt-2">
+                    <span class="text-[10px] md:text-xs font-black text-slate-500 uppercase">(-) صافي تكلفة المباع</span>
+                    <span class="text-xs md:text-sm font-black text-rose-500 font-mono">${formatMoney(data.netCOGS)}</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-50 p-2 md:p-2.5 rounded-lg md:rounded-xl">
+                    <span class="text-[10px] md:text-xs font-black text-slate-500 uppercase">(-) المصروفات</span>
+                    <span class="text-xs md:text-sm font-black text-rose-500 font-mono">${formatMoney(data.totalExpenses)}</span>
+                </div>
             </div>
-            <div class="flex justify-between items-center bg-slate-50 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl">
-                <span class="text-[10px] md:text-xs font-black text-slate-500 uppercase">(-) تكلفة المباع</span>
-                <span class="text-sm md:text-base font-black text-rose-500 font-mono">${formatMoney(data.totalCOGS)}</span>
-            </div>
-            <div class="flex justify-between items-center bg-slate-50 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl">
-                <span class="text-[10px] md:text-xs font-black text-slate-500 uppercase">(-) المصروفات</span>
-                <span class="text-sm md:text-base font-black text-rose-500 font-mono">${formatMoney(data.totalExpenses)}</span>
-            </div>
-            <div class="flex justify-between items-center ${data.netIncome >= 0 ? 'bg-emerald-50 border border-emerald-100' : 'bg-rose-50 border border-rose-100'} p-4 md:p-5 rounded-xl md:rounded-2xl mt-3 md:mt-4 shadow-sm">
+            <div class="flex justify-between items-center ${data.netIncome >= 0 ? 'bg-emerald-50 border border-emerald-100' : 'bg-rose-50 border border-rose-100'} p-3 md:p-4 rounded-xl md:rounded-2xl mt-3 md:mt-4 shadow-sm">
                 <span class="text-xs md:text-sm font-black ${data.netIncome >= 0 ? 'text-emerald-800' : 'text-rose-800'}">صافي الربح الفعلي</span>
                 <span class="text-xl md:text-2xl font-black ${data.netIncome >= 0 ? 'text-emerald-600' : 'text-rose-600'} font-mono">${formatMoney(data.netIncome)}</span>
             </div>
         `;
 
-        // 2. السيولة
+        // 2. السيولة (الفلوس في الجيب - تم إضافة المرتجعات كخروج أموال)
         document.getElementById('cashflow-kpis').innerHTML = `
-            <div class="flex justify-between items-center bg-white/5 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl">
-                <span class="text-[10px] md:text-xs font-black text-slate-300 uppercase">دخل (مبيعات)</span>
-                <span class="text-sm md:text-base font-black text-blue-400 font-mono">${formatMoney(data.totalRevenue)}</span>
+            <div class="space-y-2">
+                <div class="flex justify-between items-center bg-white/5 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl">
+                    <span class="text-[10px] md:text-xs font-black text-slate-300 uppercase">دخل (مبيعات)</span>
+                    <span class="text-sm md:text-base font-black text-emerald-400 font-mono">${formatMoney(data.totalGrossRevenue)}</span>
+                </div>
+                <div class="flex justify-between items-center bg-white/5 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-white/5">
+                    <span class="text-[10px] md:text-xs font-black text-slate-300 uppercase">خرج (مشتريات بضاعة)</span>
+                    <span class="text-sm md:text-base font-black text-rose-400 font-mono">${formatMoney(data.totalPurchases)}</span>
+                </div>
+                <div class="flex justify-between items-center bg-white/5 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-white/5">
+                    <span class="text-[10px] md:text-xs font-black text-slate-300 uppercase">خرج (مصروفات)</span>
+                    <span class="text-sm md:text-base font-black text-rose-400 font-mono">${formatMoney(data.totalExpenses)}</span>
+                </div>
+                <div class="flex justify-between items-center bg-amber-500/10 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-amber-500/20">
+                    <span class="text-[10px] md:text-xs font-black text-amber-200 uppercase">خرج (مرتجعات مبيعات)</span>
+                    <span class="text-sm md:text-base font-black text-amber-400 font-mono">${formatMoney(data.totalReturns)}</span>
+                </div>
             </div>
-            <div class="flex justify-between items-center bg-white/5 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-white/5">
-                <span class="text-[10px] md:text-xs font-black text-slate-300 uppercase">خرج (شراء بضاعة)</span>
-                <span class="text-sm md:text-base font-black text-rose-400 font-mono">${formatMoney(data.totalPurchases)}</span>
-            </div>
-            <div class="flex justify-between items-center bg-white/5 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl">
-                <span class="text-[10px] md:text-xs font-black text-slate-300 uppercase">خرج (مصروفات)</span>
-                <span class="text-sm md:text-base font-black text-rose-400 font-mono">${formatMoney(data.totalExpenses)}</span>
-            </div>
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center ${data.netCashFlow >= 0 ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-rose-500/20 border border-rose-500/30'} p-4 md:p-5 rounded-xl md:rounded-2xl mt-3 md:mt-4 gap-2">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center ${data.netCashFlow >= 0 ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-rose-500/20 border border-rose-500/30'} p-3 md:p-4 rounded-xl md:rounded-2xl mt-3 md:mt-4 gap-2">
                 <span class="text-xs md:text-sm font-black text-white">السيولة (بالدرج)</span>
                 <span class="text-xl md:text-2xl font-black ${data.netCashFlow >= 0 ? 'text-blue-300' : 'text-rose-400'} font-mono">${formatMoney(data.netCashFlow)}</span>
             </div>
@@ -344,18 +370,19 @@
 
         // 3. التوضيح الذكي
         const insightText = document.getElementById('insight-text');
-        if (data.netIncome > 0 && data.netCashFlow < 0) {
-            insightText.innerHTML = `أنت تحقق ربحاً تشغيلياً جيداً <b>(${formatMoney(data.netIncome)})</b>، ولكن درج النقدية بالسالب <b>(${formatMoney(data.netCashFlow)})</b> لشرائك بضاعة عالية القيمة. أموالك في أمان كبضاعة!`;
+        if(data.totalReturns > data.totalGrossRevenue * 0.2) {
+            insightText.innerHTML = `<span class="text-rose-600">تنبيه هام:</span> المرتجعات تمثل أكثر من 20% من مبيعاتك (${formatMoney(data.totalReturns)}). يُرجى مراجعة جودة البضاعة.`;
+        } else if (data.netIncome > 0 && data.netCashFlow < 0) {
+            insightText.innerHTML = `أنت تحقق ربحاً تشغيلياً <b>(${formatMoney(data.netIncome)})</b>، ولكن درج النقدية بالسالب <b>(${formatMoney(data.netCashFlow)})</b> بسبب شرائك بضاعة عالية القيمة. أموالك في أمان كبضاعة!`;
         } else if (data.netIncome > 0 && data.netCashFlow >= 0) {
             insightText.innerHTML = `أداء ممتاز! مبيعاتك تغطي التكاليف وتوفر سيولة وربحاً حقيقياً بقيمة <b>${formatMoney(data.netIncome)}</b>.`;
         } else if (data.netIncome <= 0 && data.totalExpenses > 0) {
-            insightText.innerHTML = `تنبيه: التكاليف أعلى من المبيعات. يُرجى مراجعة <b>المصروفات (${formatMoney(data.totalExpenses)})</b> وتقليلها.`;
+            insightText.innerHTML = `تنبيه: التكاليف والمصروفات أعلى من هامش ربح المبيعات. يُرجى محاولة تقليل <b>المصروفات (${formatMoney(data.totalExpenses)})</b>.`;
         } else {
-            insightText.innerHTML = `قم بتسجيل مبيعات ومصروفات للحصول على تحليل دقيق.`;
+            insightText.innerHTML = `قم بتسجيل مبيعات ومصروفات للحصول على تحليل دقيق لعملك.`;
         }
     }
 
-    // --- دالة عرض الجدول بالترقيم ---
     function renderPaginatedTransactions() {
         const tbody = document.getElementById('transactions-table');
         const paginationContainer = document.getElementById('profit-pagination');
@@ -375,8 +402,10 @@
 
         tbody.innerHTML = displayData.map(t => {
             let badgeClass = '';
+            // ألوان معبرة لكل حركة
             if(t.type === 'sale') badgeClass = 'bg-blue-50 text-blue-600 border border-blue-100';
-            else if(t.type === 'purchase') badgeClass = 'bg-amber-50 text-amber-600 border border-amber-100';
+            else if(t.type === 'purchase') badgeClass = 'bg-indigo-50 text-indigo-600 border border-indigo-100';
+            else if(t.type === 'return') badgeClass = 'bg-amber-50 text-amber-600 border border-amber-200';
             else badgeClass = 'bg-rose-50 text-rose-600 border border-rose-100';
             
             return `
@@ -419,7 +448,6 @@
             state.currentPage = newPage;
             renderPaginatedTransactions();
             
-            // تمرير خفيف للأعلى عند تقليب الصفحات في الموبايل لراحة المستخدم
             if(window.innerWidth < 768) {
                 document.getElementById('transactions-count-badge').scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
