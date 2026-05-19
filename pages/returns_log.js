@@ -1,6 +1,6 @@
 /**
- * MENTRA ERP - Returns Log & Analytics (v1.0 Pro)
- * سجل المرتجعات: إحصائيات، تفاصيل، وإلغاء حركات الإرجاع
+ * MENTRA ERP - Returns Log & Analytics (v1.1 Pro + Thermal Print)
+ * سجل المرتجعات: إحصائيات، تفاصيل، طباعة إيصال، وإلغاء حركات الإرجاع
  */
 
 (function() {
@@ -9,8 +9,8 @@
         activeInvId: null, 
         filteredReturns: [],
         currentPage: 1,       
-        itemsPerPage: 8,
-        totalReturnedQty: 0 // إجمالي عدد القطع المرتجعة
+        itemsPerPage: 4,
+        totalReturnedQty: 0
     };
 
     // ستايلات الموبايل والـ Bottom Sheet
@@ -88,7 +88,7 @@
 
     <!-- نافذة تفاصيل المرتجع (Modal / Bottom Sheet) -->
     <div id="ret-details-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-end md:items-center justify-center p-0 md:p-4 transition-opacity duration-300">
-        <div class="bg-white w-full max-w-2xl rounded-t-[2rem] md:rounded-[2.5rem] p-4 md:p-8 shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] animate-bottom-sheet md:animate-pop-in relative text-right pb-safe" dir="rtl">
+        <div class="bg-white w-full max-w-2xl rounded-t-[2rem] md:rounded-[2.5rem] p-4 md:p-6 shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] animate-bottom-sheet md:animate-pop-in relative text-right pb-safe" dir="rtl">
             
             <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-3 md:hidden"></div>
 
@@ -99,7 +99,15 @@
                     </h3>
                     <p id="ret-modal-date" class="text-[10px] text-slate-500 font-bold mt-1"></p>
                 </div>
-                <button onclick="closeRetDetailsModal()" class="w-8 h-8 bg-slate-100 rounded-full text-slate-500 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center active:scale-90"><i class="fas fa-times"></i></button>
+                <!-- أزرار الإغلاق والطباعة -->
+                <div class="flex items-center gap-2">
+                    <button onclick="printSingleReturnReceipt()" class="w-8 h-8 md:w-10 md:h-10 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 flex items-center justify-center active:scale-90 transition-all shadow-sm" title="طباعة بون المرتجع">
+                        <i class="fas fa-print text-sm"></i>
+                    </button>
+                    <button onclick="closeRetDetailsModal()" class="w-8 h-8 md:w-10 md:h-10 bg-slate-100 rounded-xl text-slate-500 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center active:scale-90 transition-all shadow-sm">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
             </div>
             
             <div class="flex-1 overflow-y-auto hide-scrollbar space-y-4">
@@ -144,22 +152,20 @@
 
         state.filteredReturns = filtered;
 
-        // حساب الإحصائيات (نجلب العناصر لنعرف كم قطعة رجعت)
+        // حساب الإحصائيات 
         let totalRefunded = 0;
         let totalQty = 0;
 
-        // جلب جميع الـ items التابعة لهذه الفواتير لحساب عدد القطع
         const itemPromises = filtered.map(inv => db.invoice_items.where('invoice_id').equals(inv.id).toArray());
         const allItemsArrays = await Promise.all(itemPromises);
         
         allItemsArrays.forEach(items => {
             items.forEach(item => {
-                totalQty += Math.abs(item.qty); // نستخدم القيمة المطلقة لضمان العرض السليم
+                totalQty += Math.abs(item.qty); 
             });
         });
 
         filtered.forEach(inv => {
-            // المبالغ في المرتجعات تكون مسجلة بالسالب، لذلك نأخذ القيمة المطلقة للعرض
             totalRefunded += Math.abs(parseFloat(inv.total) || 0);
         });
 
@@ -167,7 +173,6 @@
 
         const formatMoney = (num) => num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
-        // تحديث كروت الإحصائيات
         document.getElementById('ret-stats-container').innerHTML = `
             <div class="col-span-2 md:col-span-1 bg-slate-900 p-4 md:p-6 rounded-[1.2rem] md:rounded-[2rem] shadow-lg text-white relative overflow-hidden">
                 <i class="fas fa-hand-holding-usd absolute -left-2 -bottom-2 text-6xl text-white/5"></i>
@@ -316,19 +321,15 @@
                 const inv = await db.invoices.get(state.activeInvId);
                 const items = await db.invoice_items.where('invoice_id').equals(state.activeInvId).toArray();
 
-                // 1. عكس المخزون (سحب القطع التي أضفناها بالخطأ)
                 for (let item of items) {
                     const prod = await db.products.get(item.product_id);
                     if (prod) {
-                        // item.qty مسجلة بالموجب في المرتجع، لذا نطرحها لنعكس التأثير
                         await db.products.update(prod.id, { stock_qty: Math.max(0, (parseFloat(prod.stock_qty)||0) - Math.abs(item.qty)) });
                     }
                 }
                 
-                // 2. حذف عناصر الفاتورة
                 await db.invoice_items.where('invoice_id').equals(state.activeInvId).delete();
                 
-                // 3. حذف القيود اليومية المرتبطة
                 if(inv && inv.invoice_number) {
                     const linkedJournal = await db.journal.where('ref_no').equals(inv.invoice_number).first();
                     if(linkedJournal) {
@@ -337,7 +338,6 @@
                     }
                 }
                 
-                // 4. حذف الفاتورة نفسها
                 await db.invoices.delete(state.activeInvId);
             });
             
@@ -345,6 +345,131 @@
             closeRetDetailsModal();
             window.loadReturnsLog();
         } catch (e) { Swal.fire({icon: 'error', title: 'خطأ', text: e.message}); }
+    };
+
+    // --- طباعة بون المرتجع الحراري ---
+    window.printSingleReturnReceipt = async () => {
+        if (!state.activeInvId) return;
+
+        try {
+            const inv = await db.invoices.get(state.activeInvId);
+            const items = await db.invoice_items.where('invoice_id').equals(state.activeInvId).toArray();
+            
+            let shopName = "Mentra ERP";
+            let shopPhone = "";
+            if(db.settings) {
+                const setting = await db.settings.get(1);
+                if(setting) {
+                    shopName = setting.shop_name || shopName;
+                    shopPhone = setting.phone || "";
+                }
+            }
+
+            const dateStr = String(inv.date).substring(0, 16).replace('T', ' ');
+            const finalRefund = Math.abs(Number(inv.total));
+            const deduction = Number(inv.discount) || 0; 
+            
+            let printWin = window.open('', '_blank');
+            let html = `
+                <!DOCTYPE html>
+                <html dir="rtl" lang="ar">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>إيصال مرتجع #${inv.invoice_number}</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+                        body { font-family: 'Cairo', sans-serif; padding: 10px; color: #000; margin: 0; background: #fff; font-size: 12px; }
+                        .receipt-container { max-width: 80mm; margin: 0 auto; }
+                        .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+                        .header h2 { margin: 0 0 5px 0; font-size: 20px; font-weight: 900; }
+                        .header p { margin: 2px 0; font-size: 11px; font-weight: bold;}
+                        .return-badge { display: inline-block; background: #000; color: #fff; padding: 2px 8px; border-radius: 4px; margin-top: 5px; }
+                        .info-box { margin-bottom: 15px; border-bottom: 2px dashed #000; padding-bottom: 10px; }
+                        .info-box div { margin-bottom: 4px; display: flex; justify-content: space-between; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                        th { border-bottom: 1px solid #000; padding: 5px 0; text-align: right; font-size: 11px; }
+                        td { padding: 6px 0; border-bottom: 1px dotted #ccc; font-size: 12px; font-weight: bold; }
+                        .col-qty { text-align: center; width: 15%; }
+                        .col-price { text-align: left; width: 25%; }
+                        .col-total { text-align: left; width: 25%; font-weight: 900;}
+                        .summary { border-top: 2px dashed #000; padding-top: 10px; font-weight: bold; }
+                        .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+                        .final-total { font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 5px; }
+                        .footer { text-align: center; margin-top: 20px; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px; }
+                        @media print { body { padding: 0; } @page { margin: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="receipt-container">
+                        <div class="header">
+                            <h2>${shopName}</h2>
+                            ${shopPhone ? `<p>تليفون: ${shopPhone}</p>` : ''}
+                            <div class="return-badge">إيصال مرتجع مبيعات</div>
+                        </div>
+                        <div class="info-box">
+                            <div><span>رقم الإيصال:</span> <strong>${inv.invoice_number}</strong></div>
+                            <div><span>التاريخ:</span> <strong>${dateStr}</strong></div>
+                            <div><span>العميل:</span> <strong>${inv.customer_vendor_name || 'عميل نقدي'}</strong></div>
+                            <div><span>طريقة الرد:</span> <strong>${inv.method === 'CASH' ? 'نقدي (كاش)' : 'شبكة'}</strong></div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>الصنف</th>
+                                    <th class="col-qty">العدد</th>
+                                    <th class="col-price">السعر</th>
+                                    <th class="col-total">الإجمالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => `
+                                    <tr>
+                                        <td>${item.product_name || 'صنف مجهول'}</td>
+                                        <td class="col-qty">${Math.abs(item.qty)}</td>
+                                        <td class="col-price">${Math.abs(Number(item.price)).toLocaleString()}</td>
+                                        <td class="col-total">${Math.abs(Number(item.total_item)).toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        <div class="summary">
+                            <div class="summary-row">
+                                <span>إجمالي القطع المستردة:</span>
+                                <span>${items.reduce((sum, i) => sum + Math.abs(i.qty), 0)} قطعة</span>
+                            </div>
+                            ${deduction > 0 ? `
+                            <div class="summary-row" style="color: #666;">
+                                <span>يخصم (رسوم إرجاع):</span>
+                                <span>${deduction.toLocaleString()} ج.م</span>
+                            </div>
+                            ` : ''}
+                            <div class="summary-row final-total">
+                                <span>المبلغ المسترد للعميل:</span>
+                                <span>${finalRefund.toLocaleString()} ج.م</span>
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <p>تم استرداد البضاعة للمخزن</p>
+                            <p style="font-size: 9px; color: #666; margin-top: 10px;">Powered by Mentra ERP</p>
+                        </div>
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            setTimeout(() => {
+                                window.print();
+                                window.close();
+                            }, 500);
+                        }
+                    </script>
+                </body>
+                </html>
+            `;
+            printWin.document.write(html);
+            printWin.document.close();
+        } catch(e) {
+            console.error("Print error:", e);
+            Swal.fire({icon:'error', title:'خطأ', text:'حدث خطأ أثناء الطباعة'});
+        }
     };
 
     // --- التصدير ---

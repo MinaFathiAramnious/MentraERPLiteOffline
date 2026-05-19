@@ -1,6 +1,6 @@
 /**
- * MENTRA ERP - Smart Sales & Inventory Master (v10.5 Mobile-Optimized)
- * الميزات: تصميم يشبه تطبيقات الموبايل الحقيقية، أرباح لحظية، مزامنة مخزن، فلاتر سريعة
+ * MENTRA ERP - Smart Sales & Inventory Master (v10.6 Mobile-Optimized + Print)
+ * الميزات: تصميم يشبه تطبيقات الموبايل الحقيقية، طباعة بون حراري احترافي، أرباح لحظية، مزامنة مخزن
  */
 
 (function() {
@@ -8,7 +8,7 @@
     const state = {
         allSales: [],
         filteredSales: [], 
-        itemsPerPage: 12,  
+        itemsPerPage: 4,  
         currentPage: 0
     };
 
@@ -49,7 +49,7 @@
             </div>
         </div>
 
-        <!-- الكروت الإحصائية (Grid ذكي للموبايل) -->
+        <!-- الكروت الإحصائية -->
         <div id="salesStats" class="grid grid-cols-2 md:grid-cols-3 gap-2.5 md:gap-5 mb-5 md:mb-8"></div>
 
         <!-- شريط الأدوات (بحث وفلاتر مدمجة للموبايل) -->
@@ -99,9 +99,9 @@
         </div>
     </div>
 
-    <!-- المودال الذكي (Bottom Sheet للموبايل / Modal للديسكتوب) -->
-    <div id="detailsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4 transition-opacity duration-300">
-        <div class="bg-white w-full max-w-2xl rounded-t-[2rem] md:rounded-[2.5rem] p-4 md:p-8 shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] animate-bottom-sheet md:animate-pop-in relative text-right pb-safe" dir="rtl">
+    <!-- المودال الذكي (Bottom Sheet للموبايل / Modal للديسكتوب) تم تحسين التصميم وإضافة زر الطباعة -->
+    <div id="detailsModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4 transition-opacity duration-300">
+        <div class="bg-white w-full max-w-2xl rounded-t-[2rem] md:rounded-[2.5rem] p-4 md:p-6 shadow-2xl flex flex-col max-h-[92vh] md:max-h-[85vh] animate-bottom-sheet md:animate-pop-in relative text-right pb-safe" dir="rtl">
             
             <!-- مؤشر السحب (للموبايل فقط) -->
             <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-3 md:hidden"></div>
@@ -110,15 +110,24 @@
             <div class="flex justify-between items-start mb-4 border-b border-slate-100 pb-3 md:pb-4 shrink-0">
                 <div>
                     <h3 class="text-base md:text-xl font-black text-slate-900 flex items-center gap-2">
+                        <i class="fas fa-file-invoice text-blue-500"></i>
                         <span id="view-inv-no" class="text-blue-600 font-mono bg-blue-50 px-2 py-0.5 rounded-md"></span>
                     </h3>
                     <p id="view-inv-date" class="text-[9px] md:text-xs font-bold text-slate-400 mt-1"></p>
                 </div>
-                <button onclick="closeDetailsModal()" class="w-8 h-8 bg-slate-100 rounded-full text-slate-500 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center active:scale-90"><i class="fas fa-times"></i></button>
+                <!-- أزرار الإغلاق والطباعة -->
+                <div class="flex items-center gap-2">
+                    <button onclick="printSingleInvoice()" class="w-9 h-9 md:w-10 md:h-10 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 flex items-center justify-center active:scale-90 transition-all shadow-sm" title="طباعة الفاتورة">
+                        <i class="fas fa-print text-sm md:text-base"></i>
+                    </button>
+                    <button onclick="closeDetailsModal()" class="w-9 h-9 md:w-10 md:h-10 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 flex items-center justify-center active:scale-90 transition-all shadow-sm">
+                        <i class="fas fa-times text-sm md:text-base"></i>
+                    </button>
+                </div>
             </div>
             
             <!-- المنطقة القابلة للتمرير -->
-            <div class="flex-1 overflow-y-auto hide-scrollbar space-y-4">
+            <div class="flex-1 overflow-y-auto hide-scrollbar space-y-4 pr-1">
                 
                 <!-- أرباح الفاتورة -->
                 <div id="invoice-profit-badge" class="bg-emerald-50 border border-emerald-100 p-3 md:p-4 rounded-xl flex items-center justify-between">
@@ -126,33 +135,35 @@
                     <span id="view-inv-profit" class="font-black text-sm md:text-base text-emerald-700 font-mono">0.00 ج.م</span>
                 </div>
 
-                <!-- قائمة الأصناف -->
-                <div class="bg-slate-50 rounded-2xl p-2 border border-slate-100">
+                <!-- قائمة الأصناف (تصميم محسن) -->
+                <div>
+                    <h4 class="text-[10px] font-black text-slate-400 mb-2 uppercase px-1">الأصناف المسجلة</h4>
                     <div id="invoice-items-list" class="space-y-2"></div>
                 </div>
 
                 <!-- الإعدادات والإجمالي -->
-                <div class="grid grid-cols-2 gap-2 md:gap-4">
-                    <div class="bg-white border border-slate-200 p-2 md:p-4 rounded-xl flex flex-col justify-center">
-                        <span class="text-[9px] md:text-[10px] font-black text-slate-400 uppercase mb-1">حالة السداد</span>
-                        <select id="view-inv-status" class="bg-transparent font-bold text-xs md:text-sm text-slate-800 outline-none w-full">
-                            <option value="paid">✅ مدفوعة كاش</option>
-                            <option value="pending">⏳ آجل (دين)</option>
+                <div class="grid grid-cols-2 gap-3 md:gap-4 mt-2">
+                    <div class="bg-white border border-slate-200 p-3 md:p-4 rounded-2xl flex flex-col justify-center shadow-sm">
+                        <span class="text-[9px] md:text-[10px] font-black text-slate-400 uppercase mb-1.5"><i class="fas fa-wallet"></i> حالة السداد</span>
+                        <select id="view-inv-status" class="bg-slate-50 border border-slate-100 p-2 rounded-lg font-bold text-xs md:text-sm text-slate-800 outline-none w-full focus:border-blue-400 transition-colors">
+                            <option value="paid">✅ مدفوعة (كاش)</option>
+                            <option value="pending">⏳ آجلة (دين)</option>
                         </select>
                     </div>
-                    <div class="bg-slate-900 p-3 md:p-4 rounded-xl flex flex-col justify-center items-end shadow-md">
-                        <span class="text-[9px] md:text-[10px] font-black text-slate-400 uppercase mb-0.5">الإجمالي النهائي</span>
-                        <h2 id="view-inv-total" class="text-lg md:text-2xl font-black text-emerald-400 font-mono truncate w-full text-left">0.00</h2>
+                    <div class="bg-slate-900 p-3 md:p-4 rounded-2xl flex flex-col justify-center items-end shadow-md relative overflow-hidden">
+                        <i class="fas fa-money-bill-wave absolute -left-2 -bottom-2 text-4xl text-white/10"></i>
+                        <span class="text-[9px] md:text-[10px] font-black text-slate-400 uppercase mb-0.5 relative z-10">الإجمالي النهائي</span>
+                        <h2 id="view-inv-total" class="text-xl md:text-2xl font-black text-emerald-400 font-mono truncate w-full text-left relative z-10">0.00</h2>
                     </div>
                 </div>
             </div>
 
             <!-- الأزرار السفلية (Sticky Footer) -->
-            <div class="pt-3 md:pt-4 mt-2 border-t border-slate-100 flex gap-2 shrink-0">
-                <button onclick="saveSmartEdit()" class="flex-[2] bg-blue-600 text-white py-3.5 rounded-xl font-black shadow-lg shadow-blue-500/20 active:bg-blue-700 active:scale-95 transition-all text-xs md:text-sm flex justify-center items-center gap-1.5">
-                    <i class="fas fa-save"></i> حفظ المخزن
+            <div class="pt-3 md:pt-4 mt-3 border-t border-slate-100 flex gap-2 shrink-0">
+                <button onclick="saveSmartEdit()" class="flex-[2] bg-blue-600 text-white py-3.5 md:py-4 rounded-2xl font-black shadow-lg shadow-blue-500/30 active:bg-blue-700 active:scale-95 transition-all text-xs md:text-sm flex justify-center items-center gap-2">
+                    <i class="fas fa-save"></i> حفظ التعديلات
                 </button>
-                <button onclick="deleteInvoice()" class="flex-1 bg-rose-50 text-rose-600 py-3.5 rounded-xl font-black border border-rose-100 active:bg-rose-100 active:scale-95 transition-all text-xs md:text-sm flex justify-center items-center gap-1.5">
+                <button onclick="deleteInvoice()" class="flex-1 bg-white border-2 border-rose-100 text-rose-600 py-3.5 md:py-4 rounded-2xl font-black hover:bg-rose-50 active:bg-rose-100 active:scale-95 transition-all text-xs md:text-sm flex justify-center items-center gap-2 shadow-sm">
                     <i class="fas fa-trash-alt"></i> حذف
                 </button>
             </div>
@@ -220,7 +231,7 @@
         const paged = data.slice(start, start + state.itemsPerPage);
 
         if(data.length === 0) {
-            container.innerHTML = `<div class="col-span-full text-center py-12 md:py-20 text-slate-400 bg-slate-50/50 rounded-2xl"><i class="fas fa-box-open text-4xl mb-3 opacity-30 block"></i><p class="font-bold text-xs">لا توجد مبيعات مطابقة لبحثك</p></div>`;
+            container.innerHTML = `<div class="col-span-full text-center py-12 md:py-20 text-slate-400 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200"><i class="fas fa-box-open text-4xl mb-3 opacity-30 block"></i><p class="font-bold text-xs">لا توجد مبيعات مطابقة لبحثك</p></div>`;
             updateStats(data);
             return;
         }
@@ -231,7 +242,7 @@
             const statusBg = isPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100';
             
             return `
-            <div class="bg-white p-3.5 md:p-5 rounded-2xl shadow-sm border border-slate-100 active:bg-slate-50 transition-all cursor-pointer relative overflow-hidden flex flex-col" onclick="openDetails(${inv.id})">
+            <div class="bg-white p-3.5 md:p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer relative overflow-hidden flex flex-col" onclick="openDetails(${inv.id})">
                 <div class="absolute top-0 right-0 w-1 h-full bg-${statusColor}-500"></div>
                 
                 <!-- Header -->
@@ -259,7 +270,7 @@
                         <p class="text-[8px] font-black text-slate-400 uppercase mb-0.5">الإجمالي</p>
                         <p class="text-base md:text-lg font-black text-slate-900 font-mono leading-none">${Number(inv.total).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                     </div>
-                    <div class="w-6 h-6 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center shadow-sm">
+                    <div class="w-6 h-6 bg-slate-50 border border-slate-200 text-slate-400 rounded-full flex items-center justify-center shadow-sm group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
                         <i class="fas fa-chevron-left text-[9px]"></i>
                     </div>
                 </div>
@@ -300,10 +311,10 @@
         
         if(invoiceProfit < 0) {
             profitEl.className = "font-black text-sm text-rose-600 font-mono";
-            document.getElementById('invoice-profit-badge').className = "mb-4 bg-rose-50 border border-rose-100 p-3 rounded-xl flex items-center justify-between shadow-sm";
+            document.getElementById('invoice-profit-badge').className = "mb-4 bg-rose-50 border border-rose-100 p-3 md:p-4 rounded-xl flex items-center justify-between shadow-sm";
         } else {
             profitEl.className = "font-black text-sm text-emerald-700 font-mono";
-            document.getElementById('invoice-profit-badge').className = "mb-4 bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex items-center justify-between shadow-sm";
+            document.getElementById('invoice-profit-badge').className = "mb-4 bg-emerald-50 border border-emerald-100 p-3 md:p-4 rounded-xl flex items-center justify-between shadow-sm";
         }
 
         renderModalItems();
@@ -312,18 +323,23 @@
         modal.classList.remove('hidden');
     };
 
+    // تم تحسين تصميم الأصناف بداخل نافذة الفاتورة لسهولة الاستخدام
     window.renderModalItems = () => {
         document.getElementById('invoice-items-list').innerHTML = editingItems.map((item, idx) => `
-            <div class="bg-white border border-slate-200 p-2.5 rounded-xl flex justify-between items-center shadow-sm">
-                <div class="flex-1 min-w-0 pr-2">
-                    <p class="font-black text-[10px] md:text-xs text-slate-800 truncate">${item.product_name}</p>
-                    <p class="text-[9px] font-bold text-slate-500 mt-0.5">${Number(item.price).toLocaleString()} ج.م للوحدة</p>
+            <div class="bg-white border border-slate-100 p-3 rounded-2xl flex justify-between items-center shadow-sm hover:border-blue-100 transition-all">
+                <div class="flex-1 min-w-0 pr-1">
+                    <p class="font-black text-[11px] md:text-sm text-slate-800 truncate">${item.product_name}</p>
+                    <p class="text-[10px] font-bold text-slate-500 mt-1"><i class="fas fa-tag text-slate-300"></i> ${Number(item.price).toLocaleString()} ج.م / الوحدة</p>
                 </div>
-                <!-- أزرار زيادة ونقصان مخصصة للمس (Touch Friendly) -->
-                <div class="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 shrink-0">
-                    <button onclick="adjustQty(${idx}, -1)" class="w-7 h-7 bg-white rounded border border-slate-200 text-slate-500 flex items-center justify-center active:bg-slate-100"><i class="fas fa-minus text-[8px]"></i></button>
-                    <span class="w-8 text-center font-black text-xs text-blue-600 font-mono">${item.qty}</span>
-                    <button onclick="adjustQty(${idx}, 1)" class="w-7 h-7 bg-white rounded border border-slate-200 text-slate-500 flex items-center justify-center active:bg-slate-100"><i class="fas fa-plus text-[8px]"></i></button>
+                
+                <!-- صندوق تعديل الكمية المطور -->
+                <div class="flex flex-col items-center gap-1.5 shrink-0 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                    <span class="text-[8px] font-black text-slate-400 uppercase leading-none">الكمية</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="adjustQty(${idx}, -1)" class="w-6 h-6 bg-white rounded-lg shadow-sm border border-slate-200 text-rose-500 flex items-center justify-center active:bg-slate-100 active:scale-90 transition-all"><i class="fas fa-minus text-[10px]"></i></button>
+                        <span class="w-6 text-center font-black text-sm text-slate-800 font-mono">${item.qty}</span>
+                        <button onclick="adjustQty(${idx}, 1)" class="w-6 h-6 bg-white rounded-lg shadow-sm border border-slate-200 text-emerald-500 flex items-center justify-center active:bg-slate-100 active:scale-90 transition-all"><i class="fas fa-plus text-[10px]"></i></button>
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -345,7 +361,7 @@
                 const prod = await db.products.get(item.product_id);
 
                 if (prod && diff > 0 && prod.stock_qty < diff) {
-                    Swal.fire({icon: 'error', title: 'رصيد غير كافٍ', text: `المتاح من ${item.product_name}: ${prod.stock_qty}`, customClass: {popup: 'rounded-3xl'}});
+                    Swal.fire({icon: 'error', title: 'رصيد غير كافٍ', text: `المتاح من ${item.product_name}: ${prod.stock_qty}`, customClass: {popup: 'rounded-3xl', confirmButton: 'rounded-xl font-bold'}});
                     return; 
                 }
             }
@@ -385,7 +401,7 @@
             cancelButtonColor: '#94a3b8',
             confirmButtonText: 'نعم، احذف',
             cancelButtonText: 'تراجع',
-            customClass: {popup: 'rounded-3xl', confirmButton: 'rounded-xl', cancelButton: 'rounded-xl'}
+            customClass: {popup: 'rounded-3xl', confirmButton: 'rounded-xl font-bold', cancelButton: 'rounded-xl font-bold'}
         });
 
         if (!res.isConfirmed) return;
@@ -422,7 +438,184 @@
         }
     };
 
-    // --- 4. التصدير (PDF & EXCEL) ---
+    // --- 4. التصدير والطباعة (Excel, PDF, Single Invoice Print) ---
+
+    // دالة طباعة بون الفاتورة الفردية (Thermal Receipt Style)
+    window.printSingleInvoice = async () => {
+        if (!activeInvoiceId) return;
+
+        try {
+            const inv = await db.invoices.get(activeInvoiceId);
+            
+            // محاولة جلب بيانات المتجر للإيصال
+            let shopName = "Mentra ERP";
+            let shopPhone = "";
+            if(db.settings) {
+                const setting = await db.settings.get(1);
+                if(setting) {
+                    shopName = setting.shop_name || shopName;
+                    shopPhone = setting.phone || "";
+                }
+            }
+
+            const items = editingItems;
+            const finalTotal = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+            
+            // فتح نافذة الطباعة
+            let printWin = window.open('', '_blank');
+            let html = `
+                <!DOCTYPE html>
+                <html dir="rtl" lang="ar">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>فاتورة #${inv.invoice_number}</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+                        body { 
+                            font-family: 'Cairo', sans-serif; 
+                            padding: 10px; 
+                            color: #000; 
+                            margin: 0; 
+                            background: #fff;
+                            font-size: 12px;
+                        }
+                        .receipt-container { 
+                            max-width: 80mm; /* عرض البون الحراري */
+                            margin: 0 auto; 
+                        }
+                        .header { 
+                            text-align: center; 
+                            border-bottom: 2px dashed #000; 
+                            padding-bottom: 10px; 
+                            margin-bottom: 10px; 
+                        }
+                        .header h2 { margin: 0 0 5px 0; font-size: 20px; font-weight: 900; }
+                        .header p { margin: 2px 0; font-size: 11px; }
+                        .info-box { 
+                            margin-bottom: 15px; 
+                            border-bottom: 2px dashed #000; 
+                            padding-bottom: 10px; 
+                        }
+                        .info-box div { margin-bottom: 4px; display: flex; justify-content: space-between; }
+                        table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin-bottom: 15px; 
+                        }
+                        th { 
+                            border-bottom: 1px solid #000; 
+                            padding: 5px 0; 
+                            text-align: right; 
+                            font-size: 11px;
+                        }
+                        td { 
+                            padding: 6px 0; 
+                            border-bottom: 1px dotted #ccc; 
+                            font-size: 12px;
+                            font-weight: bold;
+                        }
+                        .col-qty { text-align: center; width: 15%; }
+                        .col-price { text-align: left; width: 25%; }
+                        .col-total { text-align: left; width: 25%; font-weight: 900;}
+                        .summary { 
+                            border-top: 2px dashed #000; 
+                            padding-top: 10px; 
+                            font-weight: bold; 
+                        }
+                        .summary-row { 
+                            display: flex; justify-content: space-between; margin-bottom: 5px; 
+                        }
+                        .final-total { 
+                            font-size: 18px; 
+                            margin-top: 10px; 
+                            border-top: 2px solid #000; 
+                            padding-top: 5px; 
+                        }
+                        .footer { 
+                            text-align: center; 
+                            margin-top: 20px; 
+                            font-size: 11px; 
+                            border-top: 1px dashed #000;
+                            padding-top: 10px;
+                        }
+                        @media print {
+                            body { padding: 0; }
+                            @page { margin: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="receipt-container">
+                        <div class="header">
+                            <h2>${shopName}</h2>
+                            ${shopPhone ? `<p>تليفون: ${shopPhone}</p>` : ''}
+                            <p>فاتورة مبيعات ضريبية</p>
+                        </div>
+                        
+                        <div class="info-box">
+                            <div><span>رقم الفاتورة:</span> <strong>#${inv.invoice_number}</strong></div>
+                            <div><span>التاريخ:</span> <strong>${String(inv.date).substring(0, 16).replace('T', ' ')}</strong></div>
+                            <div><span>العميل:</span> <strong>${inv.customer_vendor_name || 'عميل نقدي'}</strong></div>
+                            <div><span>الدفع:</span> <strong>${inv.status === 'paid' ? 'نقدي (كاش)' : 'آجل (دين)'}</strong></div>
+                        </div>
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>الصنف</th>
+                                    <th class="col-qty">العدد</th>
+                                    <th class="col-price">السعر</th>
+                                    <th class="col-total">الإجمالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => `
+                                    <tr>
+                                        <td>${item.product_name}</td>
+                                        <td class="col-qty">${item.qty}</td>
+                                        <td class="col-price">${Number(item.price).toLocaleString()}</td>
+                                        <td class="col-total">${(item.qty * item.price).toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+
+                        <div class="summary">
+                            <div class="summary-row">
+                                <span>إجمالي الأصناف:</span>
+                                <span>${items.reduce((sum, i) => sum + i.qty, 0)} قطعة</span>
+                            </div>
+                            <div class="summary-row final-total">
+                                <span>الصافي المطلوب:</span>
+                                <span>${Number(finalTotal).toLocaleString()} ج.م</span>
+                            </div>
+                        </div>
+
+                        <div class="footer">
+                            <p>شكراً لثقتكم بنا!</p>
+                            <p style="font-size: 9px; color: #666; margin-top: 10px;">Powered by Mentra ERP</p>
+                        </div>
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            setTimeout(() => {
+                                window.print();
+                                window.close();
+                            }, 500);
+                        }
+                    </script>
+                </body>
+                </html>
+            `;
+
+            printWin.document.write(html);
+            printWin.document.close();
+
+        } catch (e) {
+            Swal.fire('خطأ', 'حدث خطأ أثناء إعداد الطباعة', 'error');
+            console.error(e);
+        }
+    };
 
     window.exportToExcel = () => {
         if(state.filteredSales.length === 0) return;
@@ -449,19 +642,20 @@
         const printWindow = window.open('', '', 'height=800,width=800');
         printWindow.document.write(`
             <html dir="rtl" lang="ar"><head><title>تقرير المبيعات</title><style>
-            body { font-family: Tahoma, sans-serif; padding: 20px; color: #1e293b; }
-            h2 { color: #2563eb; font-size: 20px; text-align: center; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+            body { font-family: 'Cairo', sans-serif; padding: 20px; color: #1e293b; }
+            h2 { color: #2563eb; font-size: 20px; text-align: center; font-weight: 900;}
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
             th, td { padding: 8px; border: 1px solid #cbd5e1; text-align: right; }
-            th { background-color: #f8fafc; }
+            th { background-color: #f8fafc; font-weight: bold;}
             .summary { margin-top:20px; display: flex; justify-content: space-between; background: #eff6ff; padding: 10px; border-radius: 5px; font-weight: bold; }
             </style></head><body>
             <h2>سجل المبيعات والعملاء</h2>
             <table><thead><tr><th>الفاتورة</th><th>التاريخ</th><th>العميل</th><th>الحالة</th><th>الإجمالي</th></tr></thead><tbody>
             ${state.filteredSales.map(inv => `<tr><td>${inv.invoice_number}</td><td>${String(inv.date).substring(0, 10)}</td><td>${inv.customer_vendor_name || 'نقدي'}</td><td>${inv.status === 'paid' ? 'مدفوعة' : 'آجلة'}</td><td dir="ltr">${Number(inv.total).toFixed(2)}</td></tr>`).join('')}
             </tbody></table>
-            <div class="summary"><span>المبيعات: ${totalAmount.toFixed(2)}</span><span>الديون: ${unpaidAmount.toFixed(2)}</span></div>
-            <script> window.onload = function() { window.print(); window.close(); } </script>
+            <div class="summary"><span>المبيعات: ${totalAmount.toLocaleString()} ج.م</span><span>الديون: ${unpaidAmount.toLocaleString()} ج.م</span></div>
+            <script> window.onload = function() { setTimeout(()=> {window.print(); window.close();}, 500); } </script>
             </body></html>
         `);
         printWindow.document.close();

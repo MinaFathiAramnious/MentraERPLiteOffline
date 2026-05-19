@@ -1,6 +1,6 @@
 /**
- * MENTRA ERP - Smart Purchases & Stock Sync (v9.0 Native Mobile Optimized)
- * Features: 100dvh Layout, Smart Input Card, Haptic Feedback, No-Scroll Body
+ * MENTRA ERP - Smart Purchases & Stock Sync (v9.2 Native Mobile Optimized + Accounting Fixed)
+ * Features: 100dvh Layout, Smart Input Card, Haptic Feedback, Perfect Journal Entries
  */
 
 (function() {
@@ -19,7 +19,7 @@
     const purchasesHTML = `
     <div class="app-container font-sans" dir="rtl" style="-webkit-tap-highlight-color: transparent;">
         
-        <!-- 1. الهيدر والإحصائيات (مدمج وذكي) -->
+        <!-- 1. الهيدر والإحصائيات -->
         <div class="bg-white/90 backdrop-blur-md px-4 py-3 border-b border-slate-200 shrink-0 shadow-sm z-30">
             <div class="flex justify-between items-center mb-3">
                 <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
@@ -49,12 +49,10 @@
                 <input type="text" id="p-search" placeholder="ابحث باسم المنتج أو الباركود..." autocomplete="off"
                        class="w-full bg-white border-2 border-slate-200 focus:border-emerald-500 rounded-2xl py-3.5 pr-11 pl-4 font-bold text-[16px] text-slate-700 outline-none transition-all shadow-sm">
             </div>
-            
-            <!-- نتائج البحث (تظهر عائمة) -->
             <div id="search-results" class="absolute left-4 right-4 bg-white shadow-2xl rounded-2xl mt-1 max-h-48 overflow-y-auto hidden border border-slate-100 divide-y divide-slate-50 z-50"></div>
         </div>
 
-        <!-- 3. بطاقة إدخال الكمية والسعر (مخفية تظهر عند اختيار منتج) -->
+        <!-- 3. بطاقة إدخال الكمية والسعر -->
         <div id="input-card" class="hidden px-4 mb-2 shrink-0 animate-fade-in">
             <div class="bg-emerald-600 rounded-[1.5rem] p-4 shadow-lg text-white">
                 <div class="flex justify-between items-start mb-4">
@@ -92,7 +90,7 @@
             </div>
         </div>
 
-        <!-- 4. عربة المشتريات (تأخذ المساحة المتبقية وتقبل التمرير) -->
+        <!-- 4. عربة المشتريات -->
         <div class="flex-1 overflow-y-auto px-4 pt-2 pb-32 hide-scrollbar">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="font-black text-slate-700 text-sm"><i class="fas fa-list-ul text-slate-400 ml-1"></i> الأصناف المضافة</h3>
@@ -107,21 +105,26 @@
             </div>
         </div>
 
-        <!-- 5. الشريط السفلي للترحيل (ثابت) -->
+        <!-- 5. الشريط السفلي للترحيل -->
         <div class="absolute bottom-0 w-full bg-slate-900 text-white rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] z-40 pb-safe transition-all border-t border-slate-800">
             <div class="p-4 flex items-center justify-between gap-3">
-                <div class="flex flex-col min-w-[80px]">
-                    <span class="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-0.5">إجمالي الفاتورة</span>
-                    <div class="flex items-baseline gap-1">
-                        <span id="purchase-total-display" class="text-2xl font-black text-emerald-400">0.00</span>
+                
+                <div class="flex flex-col min-w-[90px]">
+                    <span class="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">الإجمالي / الدفع</span>
+                    <div class="flex flex-col gap-1">
+                        <span id="purchase-total-display" class="text-xl font-black text-emerald-400">0.00</span>
+                        <select id="p-payment-status" class="bg-slate-800 text-slate-300 text-[10px] font-bold py-1 px-2 rounded-lg outline-none border border-slate-700 w-full max-w-[80px]">
+                            <option value="paid">كاش</option>
+                            <option value="pending">آجل (دين)</option>
+                        </select>
                     </div>
                 </div>
                 
-                <button id="save-purchase" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 py-3.5 rounded-[1.2rem] font-black shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm">
+                <button id="save-purchase" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 py-3.5 rounded-[1.2rem] font-black shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm h-12 mt-3">
                     <i class="fas fa-check-double"></i> ترحيل للمخزن
                 </button>
 
-                <button id="clear-purchase" class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-[1.2rem] font-black active:scale-95 transition-all flex items-center justify-center border border-rose-500/20">
+                <button id="clear-purchase" class="w-12 h-12 mt-3 bg-rose-500/10 text-rose-500 rounded-[1.2rem] font-black active:scale-95 transition-all flex items-center justify-center border border-rose-500/20">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </div>
@@ -135,8 +138,10 @@
     let selectedProduct = null;
     let allProducts = [];
 
-    // تهيئة الإحصائيات العلوية
+    // تهيئة الإحصائيات العلوية والتأكد من وجود الحسابات المحاسبية
     async function init() {
+        await ensureDefaultPurchaseAccountsExist(); // التأكد من وجود الحسابات قبل أي عملية
+
         allProducts = await db.products.toArray();
         const invoices = await db.invoices.toArray();
         const today = new Date().toISOString().split('T')[0];
@@ -146,6 +151,27 @@
         
         document.getElementById('today-purchases-count').innerText = totalToday.toLocaleString('en-US', { minimumFractionDigits: 2 });
         document.getElementById('low-stock-count').innerText = allProducts.filter(p => p.stock_qty <= 5).length;
+    }
+
+    // دالة التأكد من وجود الحسابات المحاسبية
+    async function ensureDefaultPurchaseAccountsExist() {
+        const defaultAccounts = [
+            { code: '1001', name_ar: 'الصندوق', type: 'asset', balance: 0 },
+            { code: '1002', name_ar: 'البنك', type: 'asset', balance: 0 },
+            { code: '1003', name_ar: 'عملاء مدينون', type: 'asset', balance: 0 },
+            { code: '2001', name_ar: 'موردين دائنون', type: 'liability', balance: 0 },
+            { code: '3001', name_ar: 'رأس المال', type: 'equity', balance: 0 },
+            { code: '4001', name_ar: 'إيرادات المبيعات', type: 'income', balance: 0 },
+            { code: '5001', name_ar: 'تكلفة البضاعة المباعة', type: 'expense', balance: 0 },
+            { code: '6001', name_ar: 'المخزون', type: 'asset', balance: 0 }
+        ];
+
+        for (const account of defaultAccounts) {
+            const exists = await db.accounts.where('code').equals(account.code).count();
+            if (exists === 0) {
+                await db.accounts.add(account);
+            }
+        }
     }
 
     // محرك البحث
@@ -160,7 +186,7 @@
         const filtered = allProducts.filter(p => 
             (p.name_ar && p.name_ar.toLowerCase().includes(val)) || 
             (p.sku && p.sku.toLowerCase().includes(val))
-        ).slice(0, 6); // 6 نتائج فقط لمنع امتلاء شاشة الموبايل
+        ).slice(0, 6);
 
         if(filtered.length === 0) {
             resultsDiv.innerHTML = `<div class="p-4 text-center text-xs text-rose-400 font-bold">لم يتم العثور على المنتج</div>`;
@@ -176,36 +202,30 @@
         resultsDiv.classList.remove('hidden');
     });
 
-    // إخفاء البحث عند النقر خارجاً
     document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
             resultsDiv.classList.add('hidden');
         }
     });
 
-    // اختيار المنتج وإظهار بطاقة الإدخال الذكية
+    // اختيار المنتج
     window.selectProductForPurchase = (id) => {
         const product = allProducts.find(p => p.id === id);
         if(product) {
             selectedProduct = product;
-            
-            // تعبئة البيانات
             document.getElementById('selected-p-name').innerText = product.name_ar;
             document.getElementById('current-stock-info').innerText = product.stock_qty || 0;
             document.getElementById('last-cost-info').innerText = (parseFloat(product.cost) || 0).toFixed(2);
             document.getElementById('p-cost').value = product.cost || "";
             document.getElementById('p-qty').value = 1;
             
-            // إخفاء البحث وإظهار البطاقة
             searchInput.value = "";
             resultsDiv.classList.add('hidden');
             inputCard.classList.remove('hidden');
-            
             playFeedback('tap');
         }
     };
 
-    // إلغاء الإدخال
     window.cancelInput = () => {
         selectedProduct = null;
         inputCard.classList.add('hidden');
@@ -239,10 +259,9 @@
 
         playFeedback('success');
         updateUI();
-        cancelInput(); // إخفاء البطاقة بعد الإضافة
+        cancelInput(); 
     };
 
-    // تحديث الواجهة (السلة)
     function updateUI() {
         const list = document.getElementById('purchase-items-list');
         const countBadge = document.getElementById('items-count');
@@ -308,7 +327,7 @@
         }
     };
 
-    // الترحيل الفعلي للمخزن (Dexie Database)
+    // الترحيل الفعلي للمخزن وإنشاء القيود
     document.getElementById('save-purchase').onclick = async () => {
         if (currentPurchaseItems.length === 0) {
             playFeedback('error');
@@ -318,6 +337,7 @@
 
         const invNo = document.getElementById('purchase-inv-no').innerText;
         const total = currentPurchaseItems.reduce((acc, curr) => acc + curr.total, 0);
+        const paymentStatus = document.getElementById('p-payment-status').value; 
 
         const confirmResult = await Swal.fire({
             title: 'تأكيد الترحيل؟',
@@ -333,18 +353,23 @@
         if (!confirmResult.isConfirmed) return;
 
         try {
-            await db.transaction('rw', [db.invoices, db.invoice_items, db.products, db.journal, db.journal_items], async () => {
+            // المزامنة الشاملة لجميع الجداول (تم إضافة db.accounts و db.stock_movements)
+            await db.transaction('rw', [db.invoices, db.invoice_items, db.products, db.journal, db.journal_items, db.accounts, db.stock_movements], async () => {
                 
+                const dateISO = new Date().toISOString();
+
+                // 1. إنشاء الفاتورة
                 const invId = await db.invoices.add({
                     invoice_number: invNo,
                     type: 'PURCHASE', 
-                    date: new Date().toISOString(),
+                    date: dateISO,
                     total: total,
-                    status: 'paid'
+                    status: paymentStatus 
                 });
 
                 let totalCost = 0;
 
+                // 2. تحديث المخزون وحفظ التفاصيل
                 for (let item of currentPurchaseItems) {
                     await db.invoice_items.add({
                         invoice_id: invId,
@@ -357,7 +382,7 @@
                         total_cost: item.total
                     });
 
-                    // تحديث رصيد المخزون والتكلفة
+                    // تحديث رصيد المنتج وتكلفته
                     const product = await db.products.get(Number(item.productId));
                     if (product) {
                         const newQty = (parseFloat(product.stock_qty) || 0) + item.qty;
@@ -367,21 +392,33 @@
                         });
                         totalCost += item.total;
                     }
+
+                    // تسجيل حركة المخزن لضمان دقة التقارير (Stock Movement)
+                    await db.stock_movements.add({
+                        product_id: Number(item.productId),
+                        type: 'in', // حركة دخول (مشتريات)
+                        qty: item.qty,
+                        date: dateISO,
+                        ref_id: invNo
+                    });
                 }
 
-                // إنشاء القيود المحاسبية التلقائية للمشتريات
-                await createPurchaseJournalEntry(invId, totalCost, invNo);
+                // 3. إنشاء القيود المحاسبية التلقائية (تم الاستدعاء بدون try-catch داخلي ليعمل الـ Rollback إن فشل)
+                await createPurchaseJournalEntry(invId, totalCost, invNo, dateISO, paymentStatus);
             });
 
+            // رسالة النجاح في حالة عدم وجود أخطاء في الـ Transaction
             playFeedback('success');
             await Swal.fire({
                 icon: 'success', 
                 title: 'تم الترحيل بنجاح 🚀', 
+                text: 'تم تحديث المخزون وإنشاء القيود اليومية',
                 timer: 2000, 
                 showConfirmButton: false,
                 customClass: {popup: 'rounded-3xl'}
             });
             
+            // إعادة التهيئة
             currentPurchaseItems = [];
             document.getElementById('purchase-inv-no').innerText = `PUR-${Math.floor(Math.random()*900000)}`;
             updateUI();
@@ -389,75 +426,64 @@
             init(); 
 
         } catch (err) {
-            Swal.fire({icon: 'error', title: 'خطأ', text: err.message, customClass: {popup: 'rounded-3xl'}});
+            console.error('Transaction Failed:', err);
+            playFeedback('error');
+            Swal.fire({
+                icon: 'error', 
+                title: 'لم يكتمل الترحيل!', 
+                text: 'السبب: ' + err.message, 
+                customClass: {popup: 'rounded-3xl'}
+            });
         }
     };
 
-    // دالة إنشاء القيود المحاسبية للمشتريات
-    async function createPurchaseJournalEntry(invoiceId, totalCost, invoiceNumber, date = new Date().toISOString()) {
-        try {
-            // التأكد من وجود الحسابات الأساسية
-            await ensureDefaultPurchaseAccountsExist();
-            
-            // جلب الحسابات المطلوبة
-            const cashAccount = await db.accounts.where('code').equals('1001').first();
-            const bankAccount = await db.accounts.where('code').equals('1002').first();
-            const inventoryAccount = await db.accounts.where('code').equals('6001').first();
-            const creditorsAccount = await db.accounts.where('code').equals('2001').first();
+    // دالة إنشاء القيود المحاسبية - (لا يوجد بداخلها try/catch لكي تتوافق مع الـ Transaction)
+    async function createPurchaseJournalEntry(invoiceId, totalCost, invoiceNumber, date, paymentStatus) {
+        const cashAccount = await db.accounts.where('code').equals('1001').first();
+        const inventoryAccount = await db.accounts.where('code').equals('6001').first();
+        const creditorsAccount = await db.accounts.where('code').equals('2001').first(); 
 
-            const journalId = await db.journal.add({
-                date: date,
-                ref_no: invoiceNumber,
-                description: `مشتريات - فاتورة رقم ${invoiceNumber}`,
-                total: totalCost,
-                type: 'PURCHASE'
+        if(!inventoryAccount) throw new Error('حساب المخزون غير موجود في الدليل');
+        if(paymentStatus === 'paid' && !cashAccount) throw new Error('حساب الصندوق غير موجود');
+        if(paymentStatus === 'pending' && !creditorsAccount) throw new Error('حساب الموردين الدائنين غير موجود');
+
+        // قيد رأس الفاتورة
+        const journalId = await db.journal.add({
+            date: date,
+            ref_no: invoiceNumber,
+            description: `مشتريات - فاتورة رقم ${invoiceNumber}`,
+            total: totalCost,
+            type: 'PURCHASE'
+        });
+
+        // الطرف المدين (المخزون زاد)
+        await db.journal_items.add({
+            journal_id: journalId,
+            account_id: inventoryAccount.id,
+            debit: totalCost,
+            credit: 0,
+            description: `إضافة للمخزن - ${invoiceNumber}`
+        });
+
+        // الطرف الدائن
+        if (paymentStatus === 'paid') {
+            // الدفع نقداً (الصندوق قلّ)
+            await db.journal_items.add({
+                journal_id: journalId,
+                account_id: cashAccount.id,
+                debit: 0,
+                credit: totalCost,
+                description: `مشتريات نقدية - ${invoiceNumber}`
             });
-
-            // مدين: المخزون (زيادة بقيمة التكلفة)
-            if (inventoryAccount) {
-                await db.journal_items.add({
-                    journal_id: journalId,
-                    account_id: inventoryAccount.id,
-                    debit: totalCost,
-                    credit: 0,
-                    description: `زيادة المخزون - ${invoiceNumber}`
-                });
-            }
-
-            // دائن: الصندوق/البنك (افتراض الدفع نقداً)
-            if (cashAccount) {
-                await db.journal_items.add({
-                    journal_id: journalId,
-                    account_id: cashAccount.id,
-                    debit: 0,
-                    credit: totalCost,
-                    description: `شراء نقد - ${invoiceNumber}`
-                });
-            }
-
-        } catch (error) {
-            console.error('Error creating purchase journal entry:', error);
-            // لا نوقف العملية إذا فشلت القيود المحاسبية
-        }
-    }
-
-    // دالة التأكد من وجود الحسابات الأساسية للمشتريات
-    async function ensureDefaultPurchaseAccountsExist() {
-        const defaultAccounts = [
-            { code: '1001', name_ar: 'الصندوق', type: 'asset', balance: 0 },
-            { code: '1002', name_ar: 'البنك', type: 'asset', balance: 0 },
-            { code: '2001', name_ar: 'موردين دائنون', type: 'liability', balance: 0 },
-            { code: '3001', name_ar: 'رأس المال', type: 'equity', balance: 0 },
-            { code: '4001', name_ar: 'إيرادات المبيعات', type: 'income', balance: 0 },
-            { code: '5001', name_ar: 'تكلفة البضاعة المباعة', type: 'expense', balance: 0 },
-            { code: '6001', name_ar: 'المخزون', type: 'asset', balance: 0 }
-        ];
-
-        for (const account of defaultAccounts) {
-            const exists = await db.accounts.where('code').equals(account.code).count();
-            if (exists === 0) {
-                await db.accounts.add(account);
-            }
+        } else if (paymentStatus === 'pending') {
+            // الشراء آجل (الدين زاد للموردين)
+            await db.journal_items.add({
+                journal_id: journalId,
+                account_id: creditorsAccount.id,
+                debit: 0,
+                credit: totalCost,
+                description: `مشتريات آجلة (مورد) - ${invoiceNumber}`
+            });
         }
     }
 
@@ -469,5 +495,6 @@
         }
     }
 
+    // التشغيل المبدئي للواجهة
     init();
 })();

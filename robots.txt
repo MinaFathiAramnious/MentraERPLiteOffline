@@ -1,0 +1,22 @@
+# توجيهات لجميع محركات البحث (Google, Bing, etc.)
+User-agent: *
+
+# السماح بزيارة الصفحات التعريفية لزيادة ظهور الموقع
+Allow: /
+Allow: /index.html
+Allow: /Tutorial.html
+Allow: /subscriptions.html
+
+# منع أرشفة صفحات لوحة التحكم والبيانات الحساسة
+# (حتى لا تظهر صفحات "فارغة" أو "خاطئة" للمستخدمين في نتائج البحث)
+Disallow: /dashboard.html
+Disallow: /login.html
+Disallow: /private/
+Disallow: /config/
+
+# تحديد مسار ملف السايت ماب لمساعدة العناكب على الفهرسة بسرعة
+Sitemap: https://minafathiaramnious.github.io/MentraERPLiteOffline/sitemap.xml
+
+# منع محركات البحث الضعيفة أو المزعجة من استنزاف موارد الموقع (اختياري)
+User-agent: dotbot
+Disallow: /

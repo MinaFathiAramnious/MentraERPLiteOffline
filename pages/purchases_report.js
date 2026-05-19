@@ -10,7 +10,7 @@
         editingItems: [],
         filteredPurchases: [],
         currentPage: 1,       
-        itemsPerPage: 8       // زيادة العدد لـ 8 ليكون الشكل أفضل في الجريد
+        itemsPerPage: 4       // زيادة العدد لـ 8 ليكون الشكل أفضل في الجريد
     };
 
     // إضافة ستايل خاص للموبايل (Safe Area & Hide Scrollbar & Bottom Sheet)

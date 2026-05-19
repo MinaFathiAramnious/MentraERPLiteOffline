@@ -1,8 +1,8 @@
 {
     "name": "Mentra ERP Lite",
-    "short_name": "MentraERPLite",
+    "short_name": "Mentra ERP Lite",
     "description": "نظام محاسبي وإداري يعمل بدون إنترنت",
-    "start_url": "https://mentra-erp-lite.netlify.app/index.html",
+    "start_url": "https://minafathiaramnious.github.io/MentraERPLiteOffline/index.html",
     "display": "standalone",
     "background_color": "#f8fafc",
     "theme_color": "#0f172a",

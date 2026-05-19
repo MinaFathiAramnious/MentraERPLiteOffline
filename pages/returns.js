@@ -1,6 +1,6 @@
 /**
- * MENTRA ERP - Smart Returns Engine (v1.0)
- * نظام إدارة مرتجعات المبيعات - متصل بالمخازن والقيود العكسية
+ * MENTRA ERP - Smart Returns Engine (v1.1 + Thermal Print)
+ * نظام إدارة مرتجعات المبيعات - متصل بالمخازن والقيود العكسية وإمكانية الطباعة
  */
 
 (function() {
@@ -74,6 +74,10 @@
         .ret-sync-deduction { width:46px; background:transparent; border:none; color:#fff; font-size:15px; text-align:center; outline:none; font-family:monospace; font-weight:900; border-bottom:2px solid rgba(239,68,68,0.3); }
         .ret-sync-customer { flex:1; min-width:0; background:#1e293b; border:1px solid #334155; border-radius:0.5rem; padding:6px 10px; font-size:14px; font-weight:700; color:#fff; outline:none; }
         
+        /* Print Toggle Styles */
+        .ret-print-toggle-wrap { display:flex; align-items:center; gap:8px; margin-bottom:12px; color:#cbd5e1; font-size:12px; font-weight:700; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.1); cursor:pointer;}
+        .ret-print-toggle-wrap input[type="checkbox"] { width: 16px; height: 16px; accent-color: #f59e0b; cursor:pointer; }
+
         .ret-btn { border:none; cursor:pointer; border-radius:1rem; padding:12px; font-weight:900; font-size:.9rem; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s;}
         .ret-btn:active { transform:scale(0.96); }
         .ret-cash { background:#ef4444; color:#fff; } 
@@ -144,7 +148,15 @@
                     <div style="font-size:.7rem; font-weight:900; color:#fbbf24;">المبلغ المرتجع للعميل</div>
                     <div class="ret-sync-final-total" style="font-size:3.5rem; font-weight:900; color:#fff; font-family:monospace; line-height:1.1;">0.00</div>
                 </div>
+                
                 <input type="text" class="ret-sync-customer" oninput="syncRetInputs('ret-sync-customer', this.value)" placeholder="اسم العميل (اختياري)..." style="width:100%; margin-bottom:12px; box-sizing:border-box;">
+                
+                <!-- زر الطباعة للديسكتوب -->
+                <label class="ret-print-toggle-wrap">
+                    <input type="checkbox" class="ret-sync-print" onchange="syncRetInputs('ret-sync-print', this.checked, true)" checked>
+                    <span>طباعة إيصال المرتجع للعميل</span>
+                </label>
+
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <button class="ret-btn ret-cash" onclick="processRefund('CASH')"><i class="fas fa-hand-holding-usd"></i> إرجاع نقدي</button>
                     <button class="ret-btn ret-card" onclick="processRefund('CARD')"><i class="fas fa-credit-card"></i> إرجاع شبكة</button>
@@ -165,6 +177,13 @@
                 </div>
                 <input type="text" class="ret-sync-customer" oninput="syncRetInputs('ret-sync-customer', this.value)" placeholder="اسم العميل...">
             </div>
+            
+            <!-- زر الطباعة للموبايل -->
+            <label class="ret-print-toggle-wrap" style="padding:6px; margin-bottom:10px;">
+                <input type="checkbox" class="ret-sync-print" onchange="syncRetInputs('ret-sync-print', this.checked, true)" checked>
+                <span>طباعة بون المرتجع</span>
+            </label>
+
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                 <button class="ret-btn ret-cash" onclick="processRefund('CASH')"><i class="fas fa-hand-holding-usd"></i> إرجاع نقدي</button>
                 <button class="ret-btn ret-card" onclick="processRefund('CARD')"><i class="fas fa-credit-card"></i> إرجاع شبكة</button>
@@ -203,7 +222,17 @@
 
     // --- Logic ---
     window.setRetText = (className, value) => { document.querySelectorAll('.' + className).forEach(el => el.innerText = value); };
-    window.syncRetInputs = (className, value) => { document.querySelectorAll('.' + className).forEach(el => { if(el.value !== value) el.value = value; }); };
+    
+    // دالة المزامنة المعدلة لتدعم المدخلات العادية ومربعات الاختيار (Checkbox)
+    window.syncRetInputs = (className, value, isCheckbox = false) => { 
+        document.querySelectorAll('.' + className).forEach(el => { 
+            if(isCheckbox) {
+                if(el.checked !== value) el.checked = value;
+            } else {
+                if(el.value !== value) el.value = value; 
+            }
+        }); 
+    };
 
     window.liveRetSearch = async (val) => {
         const resultsArea = document.getElementById('ret-search-results');
@@ -328,6 +357,123 @@
         }
     };
 
+    // --- دالة الطباعة الحرارية للمرتجع ---
+    async function printReturnReceipt(invoiceNumber, customerName, cartItems, finalRefund, deduction, paymentMethod) {
+        try {
+            let shopName = "Mentra ERP";
+            let shopPhone = "";
+            if(db.settings) {
+                const setting = await db.settings.get(1);
+                if(setting) {
+                    shopName = setting.shop_name || shopName;
+                    shopPhone = setting.phone || "";
+                }
+            }
+
+            const dateStr = new Date().toLocaleString('ar-EG');
+            
+            let printWin = window.open('', '_blank');
+            let html = `
+                <!DOCTYPE html>
+                <html dir="rtl" lang="ar">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>إيصال مرتجع #${invoiceNumber}</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+                        body { font-family: 'Cairo', sans-serif; padding: 10px; color: #000; margin: 0; background: #fff; font-size: 12px; }
+                        .receipt-container { max-width: 80mm; margin: 0 auto; }
+                        .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+                        .header h2 { margin: 0 0 5px 0; font-size: 20px; font-weight: 900; }
+                        .header p { margin: 2px 0; font-size: 11px; font-weight: bold;}
+                        .return-badge { display: inline-block; background: #000; color: #fff; padding: 2px 8px; border-radius: 4px; margin-top: 5px; }
+                        .info-box { margin-bottom: 15px; border-bottom: 2px dashed #000; padding-bottom: 10px; }
+                        .info-box div { margin-bottom: 4px; display: flex; justify-content: space-between; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                        th { border-bottom: 1px solid #000; padding: 5px 0; text-align: right; font-size: 11px; }
+                        td { padding: 6px 0; border-bottom: 1px dotted #ccc; font-size: 12px; font-weight: bold; }
+                        .col-qty { text-align: center; width: 15%; }
+                        .col-price { text-align: left; width: 25%; }
+                        .col-total { text-align: left; width: 25%; font-weight: 900;}
+                        .summary { border-top: 2px dashed #000; padding-top: 10px; font-weight: bold; }
+                        .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+                        .final-total { font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 5px; }
+                        .footer { text-align: center; margin-top: 20px; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px; }
+                        @media print { body { padding: 0; } @page { margin: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="receipt-container">
+                        <div class="header">
+                            <h2>${shopName}</h2>
+                            ${shopPhone ? `<p>تليفون: ${shopPhone}</p>` : ''}
+                            <div class="return-badge">إيصال مرتجع مبيعات</div>
+                        </div>
+                        <div class="info-box">
+                            <div><span>رقم الإيصال:</span> <strong>${invoiceNumber}</strong></div>
+                            <div><span>التاريخ:</span> <strong>${dateStr}</strong></div>
+                            <div><span>العميل:</span> <strong>${customerName}</strong></div>
+                            <div><span>طريقة الرد:</span> <strong>${paymentMethod === 'CASH' ? 'نقدي (كاش)' : 'شبكة'}</strong></div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>الصنف</th>
+                                    <th class="col-qty">العدد</th>
+                                    <th class="col-price">السعر</th>
+                                    <th class="col-total">الإجمالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${cartItems.map(item => `
+                                    <tr>
+                                        <td>${item.name}</td>
+                                        <td class="col-qty">${item.qty}</td>
+                                        <td class="col-price">${Number(item.price).toLocaleString()}</td>
+                                        <td class="col-total">${(item.qty * item.price).toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        <div class="summary">
+                            <div class="summary-row">
+                                <span>إجمالي القطع المرتجعة:</span>
+                                <span>${cartItems.reduce((sum, i) => sum + i.qty, 0)} قطعة</span>
+                            </div>
+                            ${deduction > 0 ? `
+                            <div class="summary-row" style="color: #666;">
+                                <span>يخصم (رسوم إرجاع):</span>
+                                <span>${Number(deduction).toLocaleString()} ج.م</span>
+                            </div>
+                            ` : ''}
+                            <div class="summary-row final-total">
+                                <span>المبلغ المسترد للعميل:</span>
+                                <span>${Number(finalRefund).toLocaleString()} ج.م</span>
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <p>تم استرداد البضاعة للمخزن</p>
+                            <p style="font-size: 9px; color: #666; margin-top: 10px;">Powered by Mentra ERP</p>
+                        </div>
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            setTimeout(() => {
+                                window.print();
+                                window.close();
+                            }, 500);
+                        }
+                    </script>
+                </body>
+                </html>
+            `;
+            printWin.document.write(html);
+            printWin.document.close();
+        } catch (e) {
+            console.error("خطأ في الطباعة:", e);
+        }
+    }
+
     // --- الإرجاع المحاسبي والمخزني ---
     window.processRefund = async (method) => {
         if (state.cart.length === 0) {
@@ -342,8 +488,12 @@
         try {
             const customerName = document.querySelector('.ret-sync-customer').value || "عميل (مرتجع)";
             const deductionApplied = parseFloat(document.querySelector('.ret-sync-deduction').value) || 0;
+            const shouldPrint = document.querySelector('.ret-sync-print').checked; // حالة الطباعة
             const today = new Date().toISOString(); 
             const invNumber = 'RET-' + Date.now().toString().slice(-6);
+            
+            // حفظ بيانات الكارت للطباعة قبل مسحها
+            const itemsToPrint = [...state.cart]; 
             
             await db.transaction('rw', db.invoices, db.invoice_items, db.products, db.journal, db.journal_items, db.accounts, async () => {
                 
@@ -417,6 +567,11 @@
             playRetFeedback('success');
             Swal.fire({ title: 'تم الإرجاع بنجاح', text: `تم رد مبلغ: ${finalRefund.toFixed(2)} وإعادة البضاعة للمخزن`, icon: 'success', timer: 2500, showConfirmButton: false, customClass: { popup: 'rounded-3xl' } });
 
+            // فتح بون الطباعة إذا كان الخيار مُفعلاً
+            if (shouldPrint) {
+                await printReturnReceipt(invNumber, customerName, itemsToPrint, finalRefund, deductionApplied, method);
+            }
+
             state.cart = [];
             syncRetInputs('ret-sync-customer', '');
             syncRetInputs('ret-sync-deduction', 0);
@@ -438,7 +593,7 @@
         }
     }
 
-    // --- نظام الباركود (منسوخ ومعدل للمرتجعات) ---
+    // --- نظام الباركود ---
     let retCodeReader = null;
     let retCurrentStream = null;
 

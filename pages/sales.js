@@ -1,6 +1,6 @@
 /**
- * MENTRA ERP - Smart POS Engine v3.2 (Mobile Native + Payment Status Option)
- * Features: Mobile UI, Haptic Feedback, SweetAlert2, Credit Sales (آجل)
+ * MENTRA ERP - Smart POS Engine v3.3 (Mobile Native + Payment Status + Optional Print)
+ * Features: Mobile UI, Haptic Feedback, SweetAlert2, Credit Sales (آجل), Thermal Print Option
  */
 
 (function() {
@@ -71,7 +71,6 @@
         #pb-discount-wrap span { font-size:8px; font-weight:900; color:var(--error); }
         .sync-discount { width:46px; background:transparent; border:none; color:#fff; font-size:15px; text-align:center; outline:none; font-family:monospace; font-weight:900; }
         
-        /* New Input Styles */
         .sync-customer { flex:1; min-width:0; background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-md); padding:6px 10px; font-size:14px; font-weight:700; color:#fff; outline:none; }
         .sync-status { background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-md); padding:6px; font-size:12px; font-weight:700; color:#fff; outline:none; cursor:pointer; }
         
@@ -89,7 +88,6 @@
         .dp-total-label { font-size:.6rem; font-weight:900; color:var(--success); }
         .dp-total-val { font-size:3.5rem; font-weight:900; color:#fff; font-family:monospace; line-height:1.1; }
         
-        /* Desktop Inputs Row */
         .dp-input-row { display:flex; gap:8px; margin-bottom:12px; }
         .dp-customer { flex:1; background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-lg); padding:12px 14px; color:#fff; font-size:14px; font-weight:700; outline:none; }
         .dp-status { width:110px; background:var(--neutral-800); border:1px solid var(--neutral-600); border-radius:var(--radius-lg); padding:12px 10px; color:#fff; font-size:14px; font-weight:700; outline:none; cursor:pointer; }
@@ -98,6 +96,10 @@
         .dp-btn { border:none; cursor:pointer; border-radius:var(--radius-lg); padding:16px; font-weight:900; font-size:1rem; display:flex; align-items:center; justify-content:center; gap:8px; }
         .dp-cash { background:var(--success); color:var(--neutral-900); }
         .dp-card { background:var(--primary-600); color:#fff; }
+
+        /* Print Checkbox Style */
+        .print-toggle-wrap { display:flex; align-items:center; gap:8px; margin-bottom:12px; color:#cbd5e1; font-size:12px; font-weight:700; background: rgba(255,255,255,0.05); padding: 8px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.1); cursor:pointer;}
+        .print-toggle-wrap input[type="checkbox"] { width: 16px; height: 16px; accent-color: #3b82f6; cursor:pointer; }
 
         /* ===== Scanner Modal ===== */
         #scanner-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.9); z-index:9999; direction:ltr; }
@@ -171,6 +173,12 @@
                     </select>
                 </div>
 
+                <!-- زر الطباعة -->
+                <label class="print-toggle-wrap">
+                    <input type="checkbox" class="sync-print" onchange="syncInputs('sync-print', this.checked, true)" checked>
+                    <span>طباعة الفاتورة تلقائياً عند الحفظ</span>
+                </label>
+
                 <div class="dp-btns">
                     <button class="dp-btn dp-cash" onclick="processCheckout('CASH')"><i class="fas fa-money-bill-wave"></i> كاش / اعتماد</button>
                     <button class="dp-btn dp-card" onclick="processCheckout('CARD')"><i class="fas fa-credit-card"></i> شبكة</button>
@@ -190,16 +198,24 @@
                     <input type="number" class="sync-discount" oninput="updateTotals(this.value)" value="0" placeholder="0">
                 </div>
             </div>
+            
             <!-- خيارات العميل وحالة الدفع (موبايل) -->
-            <div style="display:flex; gap:6px; margin-bottom:10px;">
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
                 <input type="text" class="sync-customer" oninput="syncInputs('sync-customer', this.value)" placeholder="اسم العميل...">
                 <select class="sync-status" onchange="syncInputs('sync-status', this.value)">
                     <option value="paid">✅ كاش/مسدد</option>
                     <option value="pending">⏳ آجل (دين)</option>
                 </select>
             </div>
+            
+            <!-- زر الطباعة -->
+            <label class="print-toggle-wrap" style="padding:6px; margin-bottom:10px;">
+                <input type="checkbox" class="sync-print" onchange="syncInputs('sync-print', this.checked, true)" checked>
+                <span>طباعة بون الفاتورة</span>
+            </label>
+
             <div id="pb-row2">
-                <button class="pb-btn pb-cash" onclick="processCheckout('CASH')"><i class="fas fa-check-double"></i> كاش / اعتماد الفاتورة</button>
+                <button class="pb-btn pb-cash" onclick="processCheckout('CASH')"><i class="fas fa-check-double"></i> كاش / اعتماد</button>
                 <button class="pb-btn pb-card" onclick="processCheckout('CARD')"><i class="fas fa-credit-card"></i> شبكة</button>
             </div>
         </div>
@@ -246,9 +262,14 @@
         document.querySelectorAll('.' + className).forEach(el => el.innerText = value);
     };
     
-    window.syncInputs = (className, value) => {
+    // دالة المزامنة المعدلة لتدعم الـ Checkbox
+    window.syncInputs = (className, value, isCheckbox = false) => {
         document.querySelectorAll('.' + className).forEach(el => {
-            if(el.value !== value) el.value = value;
+            if (isCheckbox) {
+                if(el.checked !== value) el.checked = value;
+            } else {
+                if(el.value !== value) el.value = value;
+            }
         });
     };
 
@@ -398,6 +419,116 @@
         }
     };
 
+    // --- دالة الطباعة الحرارية للفاتورة ---
+    async function printReceipt(invoiceNumber, customerName, cartItems, finalTotal, paymentStatus) {
+        try {
+            let shopName = "Mentra ERP";
+            let shopPhone = "";
+            if(db.settings) {
+                const setting = await db.settings.get(1);
+                if(setting) {
+                    shopName = setting.shop_name || shopName;
+                    shopPhone = setting.phone || "";
+                }
+            }
+
+            const dateStr = new Date().toLocaleString('ar-EG');
+            
+            let printWin = window.open('', '_blank');
+            let html = `
+                <!DOCTYPE html>
+                <html dir="rtl" lang="ar">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>فاتورة ${invoiceNumber}</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+                        body { font-family: 'Cairo', sans-serif; padding: 10px; color: #000; margin: 0; background: #fff; font-size: 12px; }
+                        .receipt-container { max-width: 80mm; margin: 0 auto; }
+                        .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+                        .header h2 { margin: 0 0 5px 0; font-size: 20px; font-weight: 900; }
+                        .header p { margin: 2px 0; font-size: 11px; }
+                        .info-box { margin-bottom: 15px; border-bottom: 2px dashed #000; padding-bottom: 10px; }
+                        .info-box div { margin-bottom: 4px; display: flex; justify-content: space-between; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                        th { border-bottom: 1px solid #000; padding: 5px 0; text-align: right; font-size: 11px; }
+                        td { padding: 6px 0; border-bottom: 1px dotted #ccc; font-size: 12px; font-weight: bold; }
+                        .col-qty { text-align: center; width: 15%; }
+                        .col-price { text-align: left; width: 25%; }
+                        .col-total { text-align: left; width: 25%; font-weight: 900;}
+                        .summary { border-top: 2px dashed #000; padding-top: 10px; font-weight: bold; }
+                        .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+                        .final-total { font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 5px; }
+                        .footer { text-align: center; margin-top: 20px; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px; }
+                        @media print { body { padding: 0; } @page { margin: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="receipt-container">
+                        <div class="header">
+                            <h2>${shopName}</h2>
+                            ${shopPhone ? `<p>تليفون: ${shopPhone}</p>` : ''}
+                            <p>فاتورة مبيعات</p>
+                        </div>
+                        <div class="info-box">
+                            <div><span>رقم الفاتورة:</span> <strong>${invoiceNumber}</strong></div>
+                            <div><span>التاريخ:</span> <strong>${dateStr}</strong></div>
+                            <div><span>العميل:</span> <strong>${customerName}</strong></div>
+                            <div><span>الدفع:</span> <strong>${paymentStatus === 'paid' ? 'نقدي (كاش)' : 'آجل (دين)'}</strong></div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>الصنف</th>
+                                    <th class="col-qty">العدد</th>
+                                    <th class="col-price">السعر</th>
+                                    <th class="col-total">الإجمالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${cartItems.map(item => `
+                                    <tr>
+                                        <td>${item.name}</td>
+                                        <td class="col-qty">${item.qty}</td>
+                                        <td class="col-price">${Number(item.price).toLocaleString()}</td>
+                                        <td class="col-total">${(item.qty * item.price).toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        <div class="summary">
+                            <div class="summary-row">
+                                <span>إجمالي القطع:</span>
+                                <span>${cartItems.reduce((sum, i) => sum + i.qty, 0)} قطعة</span>
+                            </div>
+                            <div class="summary-row final-total">
+                                <span>الصافي المطلوب:</span>
+                                <span>${Number(finalTotal).toLocaleString()} ج.م</span>
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <p>شكراً لثقتكم بنا!</p>
+                            <p style="font-size: 9px; color: #666; margin-top: 10px;">Powered by Mentra ERP</p>
+                        </div>
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            setTimeout(() => {
+                                window.print();
+                                window.close();
+                            }, 500);
+                        }
+                    </script>
+                </body>
+                </html>
+            `;
+            printWin.document.write(html);
+            printWin.document.close();
+        } catch (e) {
+            console.error("خطأ في الطباعة:", e);
+        }
+    }
+
     window.processCheckout = async (method) => {
         if (state.cart.length === 0) {
             Swal.fire({ icon: 'error', title: 'الفاتورة فارغة', toast: true, position: 'top', timer: 2000, showConfirmButton: false }); return;
@@ -408,11 +539,12 @@
             Swal.fire({ icon: 'error', title: 'الخصم غير منطقي', toast: true, position: 'top', timer: 2000, showConfirmButton: false }); return;
         }
 
-        // --- جلب وقراءة حالة الدفع (مدفوع / آجل) ---
-        const paymentStatus = document.querySelector('.sync-status').value; // 'paid' or 'pending'
+        const paymentStatus = document.querySelector('.sync-status').value; 
         let customerName = document.querySelector('.sync-customer').value.trim();
+        
+        // قراءة حالة مربع اختيار الطباعة
+        const shouldPrint = document.querySelector('.sync-print').checked;
 
-        // إجبار الكاشير على إدخال اسم العميل إذا اختار (آجل)
         if (paymentStatus === 'pending' && customerName === '') {
             playFeedback('delete');
             Swal.fire({ 
@@ -429,16 +561,20 @@
         try {
             const discountApplied = parseFloat(document.querySelector('.sync-discount').value) || 0;
             const today = new Date().toISOString(); 
+            const generatedInvoiceNumber = 'INV-' + Date.now().toString().slice(-6);
+            
+            // حفظ بيانات الكارت لاستخدامها في الطباعة قبل إفراغه
+            const itemsToPrint = [...state.cart]; 
             
             await db.transaction('rw', db.invoices, db.invoice_items, db.products, db.journal, db.journal_items, db.accounts, async () => {
                 const invId = await db.invoices.add({
-                    invoice_number: 'INV-' + Date.now().toString().slice(-6),
+                    invoice_number: generatedInvoiceNumber,
                     customer_vendor_name: customerName,
                     date: today,
                     total: finalTotal,
                     method: method,
                     type: 'SALE',
-                    status: paymentStatus, // حفظ الحالة (paid أو pending) بدلاً من أن تكون دائما PAID
+                    status: paymentStatus, 
                     discount: discountApplied
                 });
 
@@ -465,21 +601,24 @@
                     totalRevenue += item.price * item.qty;
                 }
 
-                // إنشاء القيود المحاسبية وتمرير حالة الدفع لتوجيهها للحساب الصحيح
                 await createSalesJournalEntry(invId, finalTotal, totalCost, totalRevenue, method, today, paymentStatus);
             });
 
             playFeedback('success');
             
-            // رسالة النجاح تتغير حسب نوع الفاتورة
             const successMsg = paymentStatus === 'pending' ? 'تم تسجيل الفاتورة آجلة ⏳' : 'تم التحصيل بنجاح 🎉';
             Swal.fire({ title: successMsg, text: `الإجمالي: ${finalTotal.toFixed(2)}`, icon: 'success', timer: 2000, showConfirmButton: false, customClass: { popup: 'rounded-3xl' } });
+
+            // إذا كان المستخدم قد فعل خيار الطباعة، قم بفتح الفاتورة
+            if (shouldPrint) {
+                await printReceipt(generatedInvoiceNumber, customerName, itemsToPrint, finalTotal, paymentStatus);
+            }
 
             // إعادة تعيين الشاشة
             state.cart = [];
             syncInputs('sync-customer', '');
             syncInputs('sync-discount', 0);
-            syncInputs('sync-status', 'paid'); // إرجاع القائمة الافتراضية للكاش
+            syncInputs('sync-status', 'paid'); 
             document.getElementById('smart-search').value = '';
             document.getElementById('search-results').innerHTML = '<p style="font-size:.7rem;color:#94a3b8;font-weight:700;width:100%;text-align:center;padding:6px 0"><i class="fas fa-search" style="margin-left:4px"></i> اكتب للبحث</p>';
             renderCart();
@@ -497,7 +636,7 @@
             
             const cashAccount = await db.accounts.where('code').equals('1001').first();
             const bankAccount = await db.accounts.where('code').equals('1002').first();
-            const receivableAccount = await db.accounts.where('code').equals('1003').first(); // حساب عملاء مدينون
+            const receivableAccount = await db.accounts.where('code').equals('1003').first(); 
             const salesRevenueAccount = await db.accounts.where('code').equals('4001').first();
             const cogsAccount = await db.accounts.where('code').equals('5001').first();
             const inventoryAccount = await db.accounts.where('code').equals('6001').first();
@@ -510,49 +649,20 @@
                 type: 'SALE'
             });
 
-            // توجيه الطرف المدين (الصندوق أو البنك أو العملاء)
             if (paymentStatus === 'pending' && receivableAccount) {
-                // الفاتورة آجلة -> تذهب الأموال لحساب العملاء (دين)
-                await db.journal_items.add({
-                    journal_id: journalId,
-                    account_id: receivableAccount.id,
-                    debit: totalAmount,
-                    credit: 0,
-                    description: `مبيعات آجلة (دين مستحق) - INV-${invoiceId}`
-                });
+                await db.journal_items.add({ journal_id: journalId, account_id: receivableAccount.id, debit: totalAmount, credit: 0, description: `مبيعات آجلة (دين مستحق) - INV-${invoiceId}` });
             } else {
-                // الفاتورة مدفوعة -> تذهب الأموال للصندوق أو البنك
                 if (paymentMethod === 'CASH' && cashAccount) {
-                    await db.journal_items.add({
-                        journal_id: journalId,
-                        account_id: cashAccount.id,
-                        debit: totalAmount,
-                        credit: 0,
-                        description: `إيرادات بيع نقد - INV-${invoiceId}`
-                    });
+                    await db.journal_items.add({ journal_id: journalId, account_id: cashAccount.id, debit: totalAmount, credit: 0, description: `إيرادات بيع نقد - INV-${invoiceId}` });
                 } else if (paymentMethod === 'CARD' && bankAccount) {
-                    await db.journal_items.add({
-                        journal_id: journalId,
-                        account_id: bankAccount.id,
-                        debit: totalAmount,
-                        credit: 0,
-                        description: `إيرادات بيع شبكة - INV-${invoiceId}`
-                    });
+                    await db.journal_items.add({ journal_id: journalId, account_id: bankAccount.id, debit: totalAmount, credit: 0, description: `إيرادات بيع شبكة - INV-${invoiceId}` });
                 }
             }
 
-            // الطرف الدائن: إيرادات المبيعات
             if (salesRevenueAccount) {
-                await db.journal_items.add({
-                    journal_id: journalId,
-                    account_id: salesRevenueAccount.id,
-                    debit: 0,
-                    credit: totalRevenue,
-                    description: `إيرادات المبيعات - INV-${invoiceId}`
-                });
+                await db.journal_items.add({ journal_id: journalId, account_id: salesRevenueAccount.id, debit: 0, credit: totalRevenue, description: `إيرادات المبيعات - INV-${invoiceId}` });
             }
 
-            // قيد تكلفة البضاعة
             if (cogsAccount && totalCost > 0) {
                 await db.journal_items.add({ journal_id: journalId, account_id: cogsAccount.id, debit: totalCost, credit: 0, description: `تكلفة البضاعة المباعة - INV-${invoiceId}` });
             }
@@ -565,12 +675,11 @@
         }
     }
 
-    // إضافة حساب (العملاء المدينون) للدليل المحاسبي
     async function ensureDefaultAccountsExist() {
         const defaultAccounts = [
             { code: '1001', name_ar: 'الصندوق', type: 'asset', balance: 0 },
             { code: '1002', name_ar: 'البنك', type: 'asset', balance: 0 },
-            { code: '1003', name_ar: 'عملاء مدينون', type: 'asset', balance: 0 }, // الحساب الجديد للآجل
+            { code: '1003', name_ar: 'عملاء مدينون', type: 'asset', balance: 0 }, 
             { code: '2001', name_ar: 'موردين دائنون', type: 'liability', balance: 0 },
             { code: '3001', name_ar: 'رأس المال', type: 'equity', balance: 0 },
             { code: '4001', name_ar: 'إيرادات المبيعات', type: 'income', balance: 0 },
